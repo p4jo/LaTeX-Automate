@@ -1,5 +1,5 @@
 ﻿param(
-    [Alias("b", "root")]
+    [Alias("b", "r", "root")]
     [string] $BaseDirectory = "",
 
     [Alias( "f", "folder", "o","only", "p")]
@@ -14,7 +14,7 @@
     [Alias("a")]
     [string] $author = "Johannes Heißler",
     
-    [Alias("log", "l")]
+    [Alias("log", "l", "s", "backupLog")]
     [switch] $saveLog = $false,
 
     [Alias("h", "help")]
