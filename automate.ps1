@@ -2,19 +2,19 @@
     [Alias("b", "r", "root")]
     [string] $BaseDirectory = "",
 
-    [Alias( "f", "folder", "o","only", "p")]
+    [Alias( "f", "folder", "only", "p")]
     [string] $project = "",
 
     [Alias("all")]
     [switch] $AllIfFolderDoesntExist = $false, # Im Zweifel alle
 
-    [Alias("overwrite", "renew", "r")]
+    [Alias("o", "overwrite", "renew")]
     [switch] $RenewMainFile = $false,
 
     [Alias("a")]
     [string] $author = "Johannes Heißler",
     
-    [Alias("log", "l", "s", "backupLog")]
+    [Alias("l", "log", "backupLog", "s")]
     [switch] $saveLog = $false,
 
     [Alias("h", "help")]
