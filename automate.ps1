@@ -32,10 +32,9 @@ if ($getHelp) {
 function getIncludedTexFiles{
     param(
         $path,
-        [string] $excludeFile = "",
         [switch] $log = $false
     )
-    $allProjectFiles = (Get-ChildItem -Path $path -Filter "*.tex" -Exclude $excludeFile, _*, *_ -Recurse)
+    $allProjectFiles = (Get-ChildItem -Path $path -Filter *.tex -Exclude *_generated.tex, *_main.tex, _*, *_ -Recurse)
     $includedProjectFiles = $allProjectFiles | Where-Object {-not (Test-Path (-join($_.Directory.FullName, "\.texignore")))} 
     
     if($log) {
@@ -55,12 +54,12 @@ function getIncludedTexFiles{
     return $includedProjectFiles
 }
 
-function generatedContent ($path, $rootPath, $excludeFile) {
+function generatedContent ($path, $rootPath) {
     
     $currentPath = $path.FullName.Replace("\","/")
     $texstring = ""     
     
-    (getIncludedTexFiles -path $path -excludeFile $excludeFile -log $true) | #Alle tex-Dateien in allen Unterordnern anschauen, ausschließen mit _.
+    (getIncludedTexFiles -path $path -log $true) | #Alle tex-Dateien in allen Unterordnern anschauen, ausschließen mit _.
     ForEach-Object { # foreach(tex-Datei $path in $path)
         $PfadAufgelisteteInhaltsTex =  $_.FullName.Replace("\","/") #Resolve-Path#-Relative
         $texstring = "$texstring\input{$PfadAufgelisteteInhaltsTex}`n"
@@ -75,8 +74,17 @@ $texstring
 
 }
 
-function MakeNewRootFile($name, $contentFileName) {
-    $pathMainFile = "./$name.tex"
+function GetMainFilePath ($name) {
+    $legacyPathMainFile = "./$name.tex"
+    if(Test-Path $legacyPathMainFile){
+        return $legacyPathMainFile
+    }
+    return -join("./$name/$name", "_main.tex")
+}
+
+function MakeNewRootFile($name, $contentFilePath) {
+   $pathMainFile = GetMainFilePath -name $name
+
     Write-Host "Will write a new main file for $name. The old one will be backed up." -ForegroundColor Yellow
 
     $mainFileExists = (Test-Path $pathMainFile)
@@ -94,28 +102,25 @@ function MakeNewRootFile($name, $contentFileName) {
     title=\TITLE,
     author=\AUTHOR,
     STIX,
-    simpleTitle
+    simpleTitle,
+    omitFloat
 ]
 {JHPreamble} 
 
-\RequirePackage{icomma} %macht Kommas ohne Leerzeichen danach zu Kommas ohne Abstand danach
+% \RequirePackage{icomma} % macht Kommas ohne Leerzeichen danach zu Kommas ohne Abstand danach
 
 \hypersetup{
     pdfsubject  = {$name},
     pdfkeywords = {$name}
 }
 
-\addbibresource{./$name/Referenzen.bib}
+% \addbibresource{./$name/Referenzen.bib}
 
 \begin{document}
 
-%%% Titelseite hier (nur, wenn nicht simpleTitle als Option gesetzt wurde)
-
 \Inhaltsverzeichnis
 
-%%% Inhalt hier:
-
-\input{$name/$contentFileName}
+\input{$contentFilePath}
 
 \end{document}" | Out-File -FilePath $pathMainFile -Encoding utf8 
            
@@ -163,18 +168,18 @@ if ($project -eq "") {
 Get-ChildItem -Directory -Exclude .*, _* | ForEach-Object { 
 
     $name = $_.Name # The name of a project is its folder's name.
-    $nameGeneratedFile = -join($name,"_generated.tex")
+    $pathGeneratedFile = -join("./$name/$name", "_generated.tex")
+    $pathMainFile = GetMainFilePath -name $name
 
     if ($onlyOneFolder -and $name -ne $project) {
         Write-Host "Skipped $name"
     }
     else {
-        $pathGeneratedFile = "./$name/$nameGeneratedFile"
 
         Write-Host "`nPlan to write the following references to the file " -NoNewline
         Write-Host $pathGeneratedFile -ForegroundColor Cyan
 
-        $fileContent = generatedContent -path $_ -excludeFile $nameGeneratedFile -rootPath "../$name.tex"
+        $fileContent = generatedContent -path $_  -rootPath $pathMainFile
         if (
             ($fileContent -ne "") -and -not (
                 (Test-Path $pathGeneratedFile) -and
@@ -190,10 +195,10 @@ Get-ChildItem -Directory -Exclude .*, _* | ForEach-Object {
             $RenewMainFile -and
             $name -eq $project
         ) -or (
-            -not (Test-Path "./$name.tex") -and
+            -not (Test-Path $pathMainFile) -and
             (getIncludedTexFiles $_ ).Length -gt 0
         )) {
-        MakeNewRootFile -name $name -contentFileName $nameGeneratedFile
+        MakeNewRootFile -name $name -contentFilePath $pathGeneratedFile
     }
 }
 
