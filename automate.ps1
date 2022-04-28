@@ -34,7 +34,8 @@ function getIncludedTexFiles{
         $path,
         [switch] $log = $false
     )
-    $allProjectFiles = (Get-ChildItem -Path $path -Filter *.tex -Exclude *_generated.tex, *_main.tex, _*, *_ -Recurse)
+    $name = $path.Name
+    $allProjectFiles = (Get-ChildItem -Path $path -Filter *.tex -Exclude *_generated.tex, $name.tex, _*, *_ -Recurse)
     $includedProjectFiles = $allProjectFiles | Where-Object {-not (Test-Path (-join($_.Directory.FullName, "\.texignore")))} 
     
     if($log) {
@@ -80,12 +81,12 @@ function GetPathMainFile ($name, $reverseRelative) {
         if(Test-Path $legacyPathMainFile){
             return $legacyPathMainFile
         }
-        return -join("./$name/$name", "_main.tex")
+        return "./$name/$name.tex"
     }
     if(Test-Path $legacyPathMainFile){
         return "../$name.tex"
     }
-    return -join("$name", "_main.tex")
+    return "$name.tex"
 }
 function GetPathGeneratedFile ($name, $relative = $false) {
     $legacyPathMainFile = "./$name.tex"
