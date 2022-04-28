@@ -74,16 +74,33 @@ $texstring
 
 }
 
-function GetMainFilePath ($name) {
+function GetPathMainFile ($name, $reverseRelative) {
     $legacyPathMainFile = "./$name.tex"
-    if(Test-Path $legacyPathMainFile){
-        return $legacyPathMainFile
+    if (-not $reverseRelative){
+        if(Test-Path $legacyPathMainFile){
+            return $legacyPathMainFile
+        }
+        return -join("./$name/$name", "_main.tex")
     }
-    return -join("./$name/$name", "_main.tex")
+    if(Test-Path $legacyPathMainFile){
+        return "../$name.tex"
+    }
+    return -join("$name", "_main.tex")
+}
+function GetPathGeneratedFile ($name, $relative = $false) {
+    $legacyPathMainFile = "./$name.tex"
+    if (-not $relative){
+        return -join("./$name/$name", "_generated.tex")
+    }
+    if(Test-Path $legacyPathMainFile){
+        return -join("$name/$name", "_generated.tex")
+    }
+    return -join("$name", "_generated.tex") 
 }
 
+
 function MakeNewRootFile($name, $contentFilePath) {
-   $pathMainFile = GetMainFilePath -name $name
+   $pathMainFile = GetPathMainFile -name $name
 
     Write-Host "Will write a new main file for $name. The old one will be backed up." -ForegroundColor Yellow
 
@@ -139,7 +156,7 @@ Write-Host "Base directory = ""$BaseDirectory"", Author for new main files: ""$a
 
 $project = $project.TrimEnd(".tex").TrimEnd('/').TrimEnd('\')
 
-$projectExists = (Test-Path $project)
+$projectExists = ($project -ne "" -and (Test-Path $project))
 
 $onlyOneFolder = $false
 
@@ -166,10 +183,12 @@ if ($project -eq "") {
 
 # foreach(let $_: folder in $BaseDirectory)
 Get-ChildItem -Directory -Exclude .*, _* | ForEach-Object { 
-
     $name = $_.Name # The name of a project is its folder's name.
-    $pathGeneratedFile = -join("./$name/$name", "_generated.tex")
-    $pathMainFile = GetMainFilePath -name $name
+
+    $pathGeneratedFile = GetPathGeneratedFile -name $name
+    $pathMainFile = GetPathMainFile -name $name
+    $relativePathGeneratedFile = GetPathGeneratedFile -name $name -relative $true
+    $reverseRelativePathMainFile = GetPathMainFile -name $name -reverseRelative $true
 
     if ($onlyOneFolder -and $name -ne $project) {
         Write-Host "Skipped $name"
@@ -179,7 +198,7 @@ Get-ChildItem -Directory -Exclude .*, _* | ForEach-Object {
         Write-Host "`nPlan to write the following references to the file " -NoNewline
         Write-Host $pathGeneratedFile -ForegroundColor Cyan
 
-        $fileContent = generatedContent -path $_  -rootPath $pathMainFile
+        $fileContent = generatedContent -path $_  -rootPath $reverseRelativePathMainFile
         if (
             ($fileContent -ne "") -and -not (
                 (Test-Path $pathGeneratedFile) -and
@@ -198,17 +217,27 @@ Get-ChildItem -Directory -Exclude .*, _* | ForEach-Object {
             -not (Test-Path $pathMainFile) -and
             (getIncludedTexFiles $_ ).Length -gt 0
         )) {
-        MakeNewRootFile -name $name -contentFilePath $pathGeneratedFile
+        MakeNewRootFile -name $name -contentFilePath $relativePathGeneratedFile
     }
 }
 
 # Save Log file from being overwritten by quick rerender
 if ($saveLog) {
 
-    $logfile = "$project.log"
-    $destination = "$project\.log"
+    $legacyPathMainFile = "./$name.tex"
+    if(Test-Path $legacyPathMainFile){
+        $logfile = "./out/$project.log"
+    }
+    else{
+        $logfile = "./$project/out/$project\.log"
+    }
+    $destination = "./$project/.log"
 
     if ((Test-Path $logfile) -and (Test-Path $project)) {
         Copy-Item $logfile -Destination $destination
     }
+}
+
+if ($savePDF) {
+
 }
