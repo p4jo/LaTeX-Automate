@@ -34,8 +34,8 @@ function getIncludedTexFiles{
         $path,
         [switch] $log = $false
     )
-    $name = $path.Name
-    $allProjectFiles = (Get-ChildItem -Path $path -Filter *.tex -Exclude *_generated.tex, $name.tex, _*, *_ -Recurse)
+    $name = (Split-Path $path -Leaf)
+    $allProjectFiles = (Get-ChildItem -Path $path -Filter *.tex -Exclude *_generated.tex, *$name.tex, _*, *_ -Recurse)
     $includedProjectFiles = $allProjectFiles | Where-Object {-not (Test-Path (-join($_.Directory.FullName, "\.texignore")))} 
     
     if($log) {
@@ -99,6 +99,23 @@ function GetPathGeneratedFile ($name, $relative = $false) {
     return -join("$name", "_generated.tex") 
 }
 
+## OLD MAIN FILE STYLE
+# - project.tex
+# - project
+#    · project_generated.tex
+#    · stuff.tex
+# - project.pdf
+# - project.log and all the other generated files
+
+## NEW MAIN FILE SYSTEM
+# - project
+#    · project.tex
+#    · project_generated.tex
+#    · stuff.tex
+#    · out  
+#       - project.pdf
+#       - project.log and all the other generated files
+
 
 function MakeNewRootFile($name, $contentFilePath) {
    $pathMainFile = GetPathMainFile -name $name
@@ -155,7 +172,21 @@ else{
 
 Write-Host "Base directory = ""$BaseDirectory"", Author for new main files: ""$author""."
 
-$project = $project.TrimEnd(".tex").TrimEnd('/').TrimEnd('\')
+if ($project.EndsWith(".tex") -or (Test-Path "$project.tex")){
+    $project = $project.TrimEnd(".tex")
+    $projectBasePath = (Split-Path $project)
+    if ( $projectBasePath -eq $BaseDirectory){
+        $project = (Split-Path -Leaf -Path $project)
+    }
+    else{
+        $project = $projectBasePath
+    }
+}
+else{
+    if ($project -ne ""){
+        $project = (Split-Path -Leaf -Path $project )
+    }
+}
 
 $projectExists = ($project -ne "" -and (Test-Path $project))
 
@@ -164,7 +195,6 @@ $onlyOneFolder = $false
 if ($project -eq "") {
     Write-Host "Will run on all projects because you didn't specify a project using -project or -folder or -only."
 } else {
-    $project = $project.Substring($project.LastIndexOf('/')+1)
     if ($projectExists) {
         Write-Host "Project (subdirectory) = ""$project"""
         $onlyOneFolder = $true
@@ -237,8 +267,4 @@ if ($saveLog) {
     if ((Test-Path $logfile) -and (Test-Path $project)) {
         Copy-Item $logfile -Destination $destination
     }
-}
-
-if ($savePDF) {
-
 }
