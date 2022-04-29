@@ -179,7 +179,7 @@ if ($project.EndsWith(".tex") -or (Test-Path "$project.tex")){
         $project = (Split-Path -Leaf -Path $project)
     }
     else{
-        $project = $projectBasePath
+        $project = (Split-Path -Leaf -Path $projectBasePath)
     }
 }
 else{
