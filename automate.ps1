@@ -175,7 +175,7 @@ Write-Host "Base directory = ""$BaseDirectory"", Author for new main files: ""$a
 if ($project.EndsWith(".tex") -or (Test-Path "$project.tex")){
     $project = $project.TrimEnd(".tex")
     $projectBasePath = (Split-Path $project)
-    if ( $projectBasePath -eq $BaseDirectory){
+    if ($projectBasePath -eq "" -or $projectBasePath -eq $BaseDirectory){
         $project = (Split-Path -Leaf -Path $project)
     }
     else{
