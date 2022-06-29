@@ -115,6 +115,7 @@ class LatexRunner(Runner):
     @staticmethod
     async def newRunner(command: str = "lualatex test", workingDirectory: str = None) -> Runner:
         self = LatexRunner()
+        command += f"--output-directory=out{self.process.pid} -recorder -file-line-error -synctex=1"
         self.process = await asyncio.create_subprocess_shell(command, stdin=PIPE, stdout=PIPE, cwd=workingDirectory)
         self._state = RunnerStates.PREPARING
         print("Created new LaTeX runner with PID", self.process.pid, "(process ID as seen in the task manager)")
@@ -214,7 +215,7 @@ def mainAsServer(command, workingDirectory):
 
 def mainAsClient():
     from requests import get
-    print(get(f"http://localhost:{port}/").content)#{texFile.name}
+    print(str(get(f"http://localhost:{port}/").content))#{texFile.name}
 
 texFile = Path("B:\\LaTeX-Privat\\Motivationsschreiben\\Motivationsschreiben.tex")
 if __name__ == '__main__':
