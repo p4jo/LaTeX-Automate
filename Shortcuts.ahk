@@ -8,12 +8,13 @@ GroupAdd, Programmieren, Visual Studio,,, LaTeX
 GroupAdd, Programmieren, .py
 GroupAdd, Programmieren, .ts
 GroupAdd, Programmieren, .js
+GroupAdd, Programmieren, .ps1
 GroupAdd, Programmieren, Unity
 
 GroupAdd, LaTeX, .tex
 GroupAdd, LaTeX, .cls
 GroupAdd, LaTeX, .sty
-GroupAdd, LaTeX, LaTeX,,, .ahk
+GroupAdd, LaTeX, LaTeX,,, .ahk ; LaTeX im Titel, aber nicht .ahk
 
 ; +^!F12::Suspend  ;  Press it again to resume.
 
@@ -72,6 +73,10 @@ return
 	Send ∆ ; Das ist ein aufrechtes Dreieck für ∆x oder ∆T (U+2206). Das wird normalerweise im AP oder so verwendet, aber auch für den Laplace-Operator. Normale (Variablen) Δ sollten kursiv sein.
 return
 
+#n::
+	Send ∇
+return
+
 ^!ü::
 	Send ∞
 return
@@ -95,6 +100,10 @@ return
 return
 #-::
 	Send % "×"
+return
+
+#t::
+	Send % "\tilde "
 return
 
 $´::
@@ -303,9 +312,9 @@ return
 	^!4::
 		Send 4
 	return
-	$5::
-		Send `%
-	return
+	; $5::
+	; 	Send `%
+	; return
 	^!5::
 		Send 5
 	return
