@@ -117,7 +117,7 @@ class LatexRunner(Runner):
     @staticmethod
     async def newRunner(command: str = "lualatex test", workingDirectory: str = None) -> Runner:
         self = LatexRunner()
-        command += f"--output-directory=out{datetime.now().time().strftime()} -recorder -file-line-error -synctex=1"
+        command += f" --output-directory=out{datetime.now().time()} -recorder -file-line-error -synctex=1"
         self.process = await asyncio.create_subprocess_shell(command, stdin=PIPE, stdout=PIPE, cwd=workingDirectory)
         self._state = RunnerStates.PREPARING
         print("Created new LaTeX runner with PID", self.process.pid, "(process ID as seen in the task manager)")
