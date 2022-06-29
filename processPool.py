@@ -33,11 +33,12 @@ class Runner(metaclass = ABCMeta):
         pass
 
 class ProcessWatcher():
-    def __init__(self, command, T: type) -> None:
+    def __init__(self, command, T: type, workingDirectory: str = None) -> None:
         """ T must be a subclass of Runner """
         self.runners: list[Runner] = []
         self.oldRunners: list[Runner] = []
         self.command = command
+        self.workingDirectory = workingDirectory
         self.minNumberAvailable = 2
         self.watchSleepTime = 0.6
         self.watchTask: asyncio.Task = None
@@ -56,8 +57,8 @@ class ProcessWatcher():
         self.runners = availableRunners
         
         for _ in range(len(self.runners), self.minNumberAvailable):
-            print("Creating a new runner of type", self.T)
-            self.runners.append(await self.T.newRunner(self.command))
+            print("Creating a new runner of type", self.T.__name__)
+            self.runners.append(await self.T.newRunner(self.command, self.workingDirectory))
             
     async def watch(self):
         print("WATCHER STARTED")
@@ -94,9 +95,13 @@ class ProcessWatcher():
         await execute_runner.continueRun()
         await self.runWatcher()
         if waitForCompletion:
-            while execute_runner not in self.oldRunners: # let the watcher do the state checking
+            i = 0
+            while execute_runner not in self.oldRunners and i < 100: # let the watcher do the state checking
                 await asyncio.sleep(0.6)
-        return "\n".join(execute_runner.lines)
+                i += 1
+            if i >= 100:
+                return "ABORTED AFTER 60 SECONDS" +     "\n".join(execute_runner.lines)
+        return "\n".join(execute_runner.lines) 
 
 
 class LatexRunner(Runner):
@@ -108,9 +113,9 @@ class LatexRunner(Runner):
         self._state: RunnerStates = None
 
     @staticmethod
-    async def newRunner(command) -> Runner:
+    async def newRunner(command: str = "lualatex test", workingDirectory: str = None) -> Runner:
         self = LatexRunner()
-        self.process = await asyncio.create_subprocess_shell(command, stdin=PIPE, stdout=PIPE)
+        self.process = await asyncio.create_subprocess_shell(command, stdin=PIPE, stdout=PIPE, cwd=workingDirectory)
         self._state = RunnerStates.PREPARING
         print("Created new LaTeX runner with PID", self.process.pid, "(process ID as seen in the task manager)")
         return self
@@ -126,7 +131,7 @@ class LatexRunner(Runner):
             print("A runner has finished! PID: ", self.process.pid)
             self._state = RunnerStates.FINISHED
         if self._state == RunnerStates.PREPARING:
-            for line in await readlines_alreadyWritten(self.process):
+            for line in await self.readlines_alreadyWritten():
                 if "\\pauseExecution" in line:
                     self._state = RunnerStates.WAITING
                     print("This runner has switched to the waiting state! PID:", self.process.pid)
@@ -184,19 +189,22 @@ class LatexRunner(Runner):
 # if __name__ == '__main__':
 #     asyncio.run(main())
 
-
-def mainAsServer(command):
+def mainAsServer(command, workingDirectory):
     from aiohttp import web
 
+    watcher: ProcessWatcher = None
     async def handle(request):
+        nonlocal watcher
         name = request.match_info.get('name', "Anonymous")
         print(f"Got request to /{name}")
 
         if watcher is None:
-            watcher = ProcessWatcher(command, LatexRunner)
-        completeLog = await watcher.execute(waitForCompletion=True)
-
-        return web.Response(text=completeLog)
+            watcher = ProcessWatcher(command, workingDirectory=workingDirectory, T = LatexRunner)
+        
+            
+        return web.Response(text=
+            await watcher.execute(waitForCompletion=True)
+        )
 
     app = web.Application()
     app.add_routes([web.get('/', handle),
@@ -206,14 +214,14 @@ def mainAsServer(command):
 
 def mainAsClient():
     from requests import get
-    print(get(f"localhost:{port}/"))#{texFile.name}
+    print(get(f"http://localhost:{port}/").content)#{texFile.name}
 
 texFile = Path("B:\\LaTeX-Privat\\Motivationsschreiben\\Motivationsschreiben.tex")
 if __name__ == '__main__':
     port = 8080
     command = f"lualatex {texFile}"
     try:
-        mainAsServer(command)
+        mainAsServer(command, str(texFile.parent))
     except OSError:
         print(f"There is already a server running on port {port},  so I sent a request to it.")
-        mainAsClient(command)
+        mainAsClient()
