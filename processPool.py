@@ -167,12 +167,12 @@ class LatexRunner(Runner):
         lines: list[str] = []
         while True:
             try:
-                line = str(
+                line = (
                     await asyncio.wait_for(
                         self.process.stdout.readline(),
                         timeout = timeout
                     )
-                )
+                ).decode("utf-8") 
                 if log:
                     print('\t', line)
                 lines.append(line)
