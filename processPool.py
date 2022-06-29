@@ -2,9 +2,11 @@ from abc import ABC, ABCMeta, abstractmethod
 import asyncio
 from asyncio.subprocess import PIPE, Process
 import contextlib
+from datetime import datetime
 from enum import Enum
 import asyncio.subprocess as sp
 from pathlib import Path
+import time
 from typing import Generic, TextIO, TypeVar
 
 from matplotlib.style import available
@@ -115,7 +117,7 @@ class LatexRunner(Runner):
     @staticmethod
     async def newRunner(command: str = "lualatex test", workingDirectory: str = None) -> Runner:
         self = LatexRunner()
-        command += f"--output-directory=out{self.process.pid} -recorder -file-line-error -synctex=1"
+        command += f"--output-directory=out{datetime.now().time().strftime()} -recorder -file-line-error -synctex=1"
         self.process = await asyncio.create_subprocess_shell(command, stdin=PIPE, stdout=PIPE, cwd=workingDirectory)
         self._state = RunnerStates.PREPARING
         print("Created new LaTeX runner with PID", self.process.pid, "(process ID as seen in the task manager)")
