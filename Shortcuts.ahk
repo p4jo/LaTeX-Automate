@@ -18,7 +18,7 @@ GroupAdd, LaTeX, LaTeX,,, .ahk ; LaTeX im Titel, aber nicht .ahk
 
 ; +^!F12::Suspend  ;  Press it again to resume.
 
-~^!A::
+; ~^!A::
 ~^+^::
 	Suspend, On
 	Sleep 10000
@@ -234,7 +234,7 @@ return
 #IfWinNotActive
 
 
-#IfWinActive ahk_group LaTeX
+#If WinActive("ahk_group LaTeX") and not WinActive("ahk_group Programmieren")
 
 	^::
 		Send % "{^} " ; Sonst erwartet es ein Zeichen und z.B. ^u zu tippen ergibt û
