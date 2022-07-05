@@ -313,9 +313,9 @@ def portIsFree(port):
 
 @click.command()
 @click.option("--tex-file", "--file", "--f", "-f", default="")
-@click.option("--output-dir", "--output-directory", "--outdir", "--o", "-o", default="", help="Path for LaTeX output, relative to the tex file. Every LaTeX runner will use a temporary subdirectory and only copy to this directory in the end. Some files will be copied to our temp dir beforehand.")
+@click.option("--output-dir", "--output-directory", "--outdir", "--o", "-o", default="out", help="Path for LaTeX output, relative to the tex file. Every LaTeX runner will use a temporary subdirectory and only copy to this directory in the end. Some files will be copied to our temp dir beforehand.")
 @click.option("--port", "--p", "-p", default=DEFAULT_PORT, help=f"The port of/for the server (background worker), default = {DEFAULT_PORT}")
-@click.option("--start-server-on-demand/--no-server", "-s/-c", default=True, help="Start a server in a background process if the port is still free. Enabled by default.")
+@click.option("--start-server-on-demand/--no-server", "--s,--c", "-s/-c", default=True, help="Start a server in a background process if the port is still free. Enabled by default.")
 @click.option("--server", is_flag=True, help="Run the server right here. This script will not end by itself.")
 @click.option("--stop-server", is_flag=True, help="Stop the already running server by sending a request. Continue as normal after 1 s.")
 def main(tex_file, output_dir, port, start_server_on_demand, server, stop_server):
@@ -354,6 +354,7 @@ def main(tex_file, output_dir, port, start_server_on_demand, server, stop_server
     if tex_file != '' and not portFree:
         print("Sending request to server (background worker)")
         print(requests.post(f"http://localhost:{port}/{ROUTE_OBFUSCATION}", data=str(tex_file)).content.decode('utf8'))
+        print("Server finished.")
 
 
 
