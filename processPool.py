@@ -353,7 +353,7 @@ def main(tex_file, output_dir, port, start_server_on_demand, server, stop_server
         print("Your compilation will be done, but you won't see the logs here.")
     if tex_file != '' and not portFree:
         print("Sending request to server (background worker)")
-        print(requests.post(f"http://localhost:{port}/{ROUTE_OBFUSCATION}", data=str(tex_file)).content.decode('utf8'))
+        print(requests.post(f"http://localhost:{port}/{ROUTE_OBFUSCATION}", data=str(tex_file).encode('utf8')).content.decode('utf8'))
 
 
 
