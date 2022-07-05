@@ -242,6 +242,8 @@ def newWatcher(texFile: PathOrString, output_dir):
         output_dir = "out"
     outputDirectory = texFile.parent / output_dir
     tempOutputDirectory = outputDirectory / datetime.now().strftime("%H-%M-%S")
+    if tempOutputDirectory.exists():
+        tempOutputDirectory = tempOutputDirectory.with_name(tempOutputDirectory.name + "_")
     async def newRunner():
         powershellCommand = f"""
             $Env:LATEX_ALLOW_PAUSE_EXECUTION="true";
@@ -339,7 +341,7 @@ def main(tex_file, output_dir, port, start_server_on_demand, server, stop_server
         else:
             print("COULDN'T START THE SERVER, BECAUSE THE PORT IS NOT FREE. IS THERE ANOTHER SERVER RUNNING? KILL IT BY RUNNING THIS AGAIN WITH THE --stop-server FLAG.")
         return
-    if tex_file is not None and start_server_on_demand and portFree:
+    if tex_file != '' and start_server_on_demand and portFree:
         # command_args = [sys.executable, '"'+__file__+'"', f'--p {port}', f'--o {output_dir}', '--server', f'--f {tex_file}' ]
         # pid = os.spawnl(os.P_NOWAIT, *command_args)
         command_args = [
@@ -349,7 +351,7 @@ def main(tex_file, output_dir, port, start_server_on_demand, server, stop_server
         print("STARTED SERVER (BACKGROUND WORKER) WITH PID", pid, "using command ", *command_args)
         print("STOP IT BY CALLING THIS AGAIN WITH THE --stop-server FLAG.")
         print("Your compilation will be done, but you won't see the logs here.")
-    if tex_file is not None and not portFree:
+    if tex_file != '' and not portFree:
         print("Sending request to server (background worker)")
         print(requests.post(f"http://localhost:{port}/{ROUTE_OBFUSCATION}", data=str(tex_file)).content.decode('utf8'))
 
