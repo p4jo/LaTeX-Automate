@@ -1,16 +1,37 @@
-from abc import ABCMeta, abstractmethod
-import asyncio
-from asyncio.subprocess import PIPE, Process
+#region Imports
+# builtin
+import os
+import subprocess
+import sys
+import time
 import contextlib
 from datetime import datetime
-from enum import Enum
-from os import PathLike
 from pathlib import Path
-from typing import Awaitable, Callable, Dict
-import click
+
+# types
+from enum import Enum
+from abc import ABCMeta, abstractmethod
+from typing import Awaitable, Callable, Dict, List, Union
+
+from win32process import DETACHED_PROCESS
+
+PathOrString = Union[os.PathLike, str]
+
+# quasi builtin
+import socket
+import asyncio
+from asyncio.subprocess import PIPE, Process
+
 import requests
 
-    
+# command line interface
+import click
+#endregion
+
+# constants
+ROUTE_OBFUSCATION = 'aosijfoaisdoifnasodnifaosinf'
+DEFAULT_PORT = 65012
+
 class RunnerStates(Enum):
     PREPARING = 0
     WAITING = 1
@@ -19,7 +40,7 @@ class RunnerStates(Enum):
 
 class Runner(metaclass = ABCMeta):
     def __init__(self) -> None:
-        self.lines: list[str] = []
+        self.lines: List[str] = []
 
     @abstractmethod
     async def getState(self)->RunnerStates:
@@ -27,26 +48,30 @@ class Runner(metaclass = ABCMeta):
     @abstractmethod
     async def continueRun(self):
         pass
+    @abstractmethod
+    async def updateLog(self):
+        pass
 
     @staticmethod
     @abstractmethod
     async def newRunner():
         pass
 
-class ProcessWatcher():
+
+class ProcessWatcher:
     minNumberAvailable = 2
     _watchSleepTime = 0.6
 
     def __init__(self, newRunnerCallback: Callable[..., Awaitable[Runner]]) -> None:
         self.newRunner = newRunnerCallback
 
-        self.runners: list[Runner] = []
-        self.oldRunners: list[Runner] = []
+        self.runners: List[Runner] = []
+        self.oldRunners: List[Runner] = []
         self.watchTask: asyncio.Task = None
         
 
     async def refreshState(self):
-        availableRunners: list[Runner] = []
+        availableRunners: List[Runner] = []
 
         for runner in self.runners:
             state = await runner.getState()
@@ -89,7 +114,6 @@ class ProcessWatcher():
 
     _executionTimeout = 50
     async def execute(self, waitForCompletion: bool = False):
-        output: str = ""
         await self.stopWatcher() # the watcher might currently access the stdout.readline() method. Python throws a RuntimeError when we then also access it.
         await self.refreshState()
 
@@ -103,16 +127,19 @@ class ProcessWatcher():
         await self.runWatcher()
         if waitForCompletion:
             i = 0
-            while execute_runner not in self.oldRunners and i < self._executionTimeout/self._watchSleepTime: # let the watcher do the state checking
+            while await execute_runner.getState() != RunnerStates.FINISHED and i < self._executionTimeout/self._watchSleepTime: # let the watcher do the state checking
                 await asyncio.sleep(self._watchSleepTime)
+                # await execute_runner.updateLog()
                 i += 1
+
             if i >= self._executionTimeout/self._watchSleepTime:
                 execute_runner.lines.insert(0, f"ABORTED AFTER {self._executionTimeout} SECONDS")
-                print(f"ABORTED AFTER {self._executionTimeout} SECONDS. PID", execute_runner.process.pid)
-        if isinstance(execute_runner, LatexRunner):
-            await execute_runner.readlines_alreadyWritten()
+                print(f"ABORTED AFTER {self._executionTimeout} SECONDS.")
+                if isinstance(execute_runner, LatexRunner):
+                    print("PID", execute_runner.process.pid)
+        await execute_runner.updateLog()
         print("Execution finished. PID:", execute_runner.process.pid)
-        return "".join(execute_runner.lines) 
+        return "\n".join(execute_runner.lines)
 
 
 class LatexRunner(Runner):
@@ -126,11 +153,11 @@ class LatexRunner(Runner):
         self.currentOutputDirectory = currentOutputDirectory
 
     @staticmethod
-    async def newRunner(command: str = "lualatex test", workingDirectory: str = None, outputDirectory: PathLike = None, tempOutputDirectory: PathLike = None) -> Runner:
+    async def newRunner(command: str = "lualatex test", workingDirectory: PathOrString = None, outputDirectory: PathOrString = None, tempOutputDirectory: PathOrString = None) -> Runner:
         self = LatexRunner(outputDirectory=outputDirectory, currentOutputDirectory=tempOutputDirectory)
         self.process = await asyncio.create_subprocess_shell(command, stdin=PIPE, stdout=PIPE, cwd=workingDirectory)
         self._state = RunnerStates.PREPARING
-        print("Created new LaTeX runner with PID", self.process.pid, f"(process ID as seen in the task manager) and command {command}")
+        print("Created new LaTeX runner with PID", self.process.pid, f"(process ID as seen in the task manager) and command\n\t{command}")
         return self
 
     async def checkIfProcessTerminated(self):
@@ -140,11 +167,11 @@ class LatexRunner(Runner):
 
 
     async def getState(self) -> RunnerStates:
-        if await self.checkIfProcessTerminated():
+        if self._state != RunnerStates.FINISHED and await self.checkIfProcessTerminated():
             print("A runner has finished! PID: ", self.process.pid)
             self._state = RunnerStates.FINISHED
         if self._state == RunnerStates.PREPARING:
-            for line in await self.readlines_alreadyWritten(log=True):
+            for line in await self.updateLog(log=True):
                 if "\\pauseExecution" in line:
                     self._state = RunnerStates.WAITING
                     print("This runner has switched to the waiting state! PID:", self.process.pid)
@@ -173,22 +200,24 @@ class LatexRunner(Runner):
         # await self.getState()
 
         
-    async def readlines_alreadyWritten(self, timeout: float = 0.05, log: bool = False) -> list:
-        lines: list[str] = []
-        while True:
+    async def updateLog(self, timeout: float = 0.05, log: bool = False) -> list:
+        lines: List[str] = []
+        while self.process.returncode is None:
             try:
                 line = (
                     await asyncio.wait_for(
                         self.process.stdout.readline(),
                         timeout = timeout
                     )
-                ).decode("utf-8") 
+                ).decode("utf-8").strip()
                 if log:
-                    print('\t\t', line)
+                    print('\t\t', line.strip())
                 lines.append(line)
             except asyncio.TimeoutError:
                 # print("Buffered latex log output exceeded! PID:", process.pid)
                 break
+        else:
+            lines = (await self.process.stdout.read()).decode('utf8').splitlines()
         print("\tRead", len(lines), "lines from process", self.process.pid)
         self.lines.extend(lines)
         return lines
@@ -202,66 +231,129 @@ class LatexRunner(Runner):
 # if __name__ == '__main__':
 #     asyncio.run(main())
 
-def newWatcher(texFile: PathLike, output_dir):
-            if texFile is None or texFile == "":
-                return None
-            texFile = Path(texFile)
-            if not texFile.is_file():
-                return None
-            if output_dir is None:
-                output_dir = "out"
-            outputDirectory = texFile.parent / output_dir
-            tempOutputDirectory = outputDirectory / datetime.now().strftime("%H-%M-%S")
-            async def newRunner():
-                return await LatexRunner.newRunner(
-                    command = f"lualatex {texFile.name} -recorder -file-line-error -halt-on-error -synctex=1 --output-directory={tempOutputDirectory}",
-                    workingDirectory=texFile.parent,    
-                    outputDirectory=outputDirectory,
-                    tempOutputDirectory= tempOutputDirectory 
-                )
+def newWatcher(texFile: PathOrString, output_dir):
+    if texFile is None or texFile == "":
+        return None
+    texFile = Path(texFile).with_suffix('.tex')
+    if not texFile.is_file():
+        print("File does not exist")
+        return None
+    if output_dir is None:
+        output_dir = "out"
+    outputDirectory = texFile.parent / output_dir
+    tempOutputDirectory = outputDirectory / datetime.now().strftime("%H-%M-%S")
+    async def newRunner():
+        powershellCommand = f"""
+            $Env:LATEX_ALLOW_PAUSE_EXECUTION="true";
+            lualatex --recorder --file-line-error --interaction=nonstopmode --synctex=1 --output-directory="{tempOutputDirectory}" "{texFile.name}";
+            Start-Sleep 1;
+            cp "{tempOutputDirectory}\\*" "{outputDirectory}";
+        """.strip().replace('\n',' ').replace('"','\\"')
+        return await LatexRunner.newRunner(
+            command = f'powershell -c {powershellCommand}',
+            workingDirectory=texFile.parent,
+            outputDirectory=outputDirectory,
+            tempOutputDirectory= tempOutputDirectory
+        )
 
-            return ProcessWatcher(newRunner)
+    return ProcessWatcher(newRunner)
 
 watchers: Dict[str, ProcessWatcher] = {}
-async def do_execute(texFile, output_dir = None):
+async def do_execute(texFile: str, output_dir = None):
     if texFile is None or texFile == '':
         print("No file path provided!")
         return
     global watchers
     if texFile not in watchers:
-        watchers[texFile] = newWatcher(texFile=texFile, output_dir=output_dir)
-    watcher = watchers[texFile]
-    if watcher is None:
-        print("potential Error when creating watcher.")
-        return None
+        watcher = newWatcher(texFile=texFile, output_dir=output_dir)
+        if watcher is None:
+            print("Potential Error when creating watcher.")
+            return "Potential Error when creating watcher."
+        watchers[texFile] = watcher
+    else:
+        watcher = watchers[texFile]
     return await watcher.execute(waitForCompletion=True)
 
-def mainAsServer(port, texFile: PathLike = None, output_dir=None):
+def mainAsServer(port, texFile: PathOrString = None, output_dir=None):
+    """ Run the server. Blocks until stopped by GET request to f"http://localhost:{port}/stopServer{ROUTE_OBFUSCATION}" """
     from aiohttp import web
+    app = web.Application()
 
     async def handle(request):
         return web.Response(text=await do_execute(texFile=await request.text(), output_dir=output_dir))
 
+    async def handleStopServer(request):
+        try:
+            raise KeyboardInterrupt("actually interrupted by call to stopServer")
+        finally:
+            print("Closed by call to \stopServer---")
+
+    app.add_routes([
+        web.post(f'/{ROUTE_OBFUSCATION}', handle),
+        web.get(f'/stopServer{ROUTE_OBFUSCATION}', handleStopServer)
+    ])
+
     async def startup():
         if texFile is not None:
-            await do_execute(texFile=texFile, output_dir=output_dir) # wrapped in this startup stuff because we only have async from web.run_app
+            asyncio.get_event_loop().create_task(
+                do_execute(texFile=texFile, output_dir=output_dir) # wrapped in this startup stuff because we only have async from web.run_app
+            )
 
-        app = web.Application()
-        app.add_routes([web.post('/', handle)])
         return app
 
     web.run_app(startup(), port=port)
 
+def portIsFree(port):
+    test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    res = test_socket.connect_ex(("localhost", port)) != 0
+    test_socket.close()
+    return res
+
 @click.command()
-@click.option("--texFile", "-f", default="")
-@click.option("--output-dir", "--outdir", "-o", default="", help="relative to the tex file")
-@click.option("--port", "-p", default=8080)
-def main(texfile, output_dir, port):        
-    try:
-        mainAsServer(port=port, texFile=texfile, output_dir=output_dir)
-    except OSError:
-        print(f"There is already a server running on port {port}, so I sent a request to it.")
-        print(requests.post(f"http://localhost:{port}/", data=str(texfile)).content.decode('utf8'))
+@click.option("--tex-file", "--file", "--f", "-f", default="")
+@click.option("--output-dir", "--output-directory", "--outdir", "--o", "-o", default="", help="Path for LaTeX output, relative to the tex file. Every LaTeX runner will use a temporary subdirectory and only copy to this directory in the end. Some files will be copied to our temp dir beforehand.")
+@click.option("--port", "--p", "-p", default=DEFAULT_PORT, help=f"The port of/for the server (background worker), default = {DEFAULT_PORT}")
+@click.option("--start-server-on-demand/--no-server", "-s/-c", default=True, help="Start a server in a background process if the port is still free. Enabled by default.")
+@click.option("--server", is_flag=True, help="Run the server right here. This script will not end by itself.")
+@click.option("--stop-server", is_flag=True, help="Stop the already running server by sending a request. Continue as normal after 1 s.")
+def main(tex_file, output_dir, port, start_server_on_demand, server, stop_server):
+    portFree = portIsFree(port)
+    if stop_server and not portFree:
+        try:
+            requests.get(f"http://localhost:{port}/stopServer{ROUTE_OBFUSCATION}")
+        except requests.exceptions.ConnectionError as e:
+            # print("While requesting to stop the following 'error' occurred (as expected?)", e)
+            print("Stopped server.")
+            pass
+        else:
+            print("Potentially stopped server.")
+        portFree = portIsFree(port)
+        if not portFree:
+            time.sleep(1)
+            portFree = portIsFree(port)
+            if not portFree:
+                print("SERVER DIDN'T STOP AFTER 1 s")
+    if server:
+        if portFree:
+            mainAsServer(port=port, texFile=tex_file, output_dir=output_dir)
+        else:
+            print("COULDN'T START THE SERVER, BECAUSE THE PORT IS NOT FREE. IS THERE ANOTHER SERVER RUNNING? KILL IT BY RUNNING THIS AGAIN WITH THE --stop-server FLAG.")
+        return
+    if tex_file is not None and start_server_on_demand and portFree:
+        # command_args = [sys.executable, '"'+__file__+'"', f'--p {port}', f'--o {output_dir}', '--server', f'--f {tex_file}' ]
+        # pid = os.spawnl(os.P_NOWAIT, *command_args)
+        command_args = [
+            sys.executable, __file__, '--port', str(port), '--o', str(output_dir), '--server', '--f', str(tex_file)
+        ] # single dash arguments are interpreted as options to python (sys.executable)
+        pid = subprocess.Popen(command_args, creationflags=DETACHED_PROCESS, close_fds=True).pid
+        print("STARTED SERVER (BACKGROUND WORKER) WITH PID", pid, "using command ", *command_args)
+        print("STOP IT BY CALLING THIS AGAIN WITH THE --stop-server FLAG.")
+        print("Your compilation will be done, but you won't see the logs here.")
+    if tex_file is not None and not portFree:
+        print("Sending request to server (background worker)")
+        print(requests.post(f"http://localhost:{port}/{ROUTE_OBFUSCATION}", data=str(tex_file)).content.decode('utf8'))
+
+
 
 if __name__ == '__main__':
     main()
