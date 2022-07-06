@@ -31,6 +31,18 @@ import click
 # constants
 ROUTE_OBFUSCATION = 'aosijfoaisdoifnasodnifaosinf'
 DEFAULT_PORT = 65012
+HALT_LOG = "PAUSED EXECUTION!"
+
+WAIT_FOR_COMPLETION_SLEEP_TIME = 0.5
+WAIT_FOR_COMPLETION_TIMEOUT = 60
+STATE_WATCHER_SLEEP_TIME = 2
+
+BASE_POWERSHELL_COMMAND = """           
+    cp "{outputDirectory}\\{fileName}*" "{tempOutputDirectory}";
+    $Env:LATEX_ALLOW_PAUSE_EXECUTION="true";
+    lualatex --recorder --file-line-error --interaction=nonstopmode --synctex=1 --output-directory="{tempOutputDirectory}" "{fileName}";
+    cp "{tempOutputDirectory}\\{fileName}*" "{outputDirectory}";
+"""
 
 class RunnerStates(Enum):
     PREPARING = 0
@@ -57,10 +69,8 @@ class Runner(metaclass = ABCMeta):
     async def newRunner():
         pass
 
-
 class ProcessWatcher:
     minNumberAvailable = 2
-    _watchSleepTime = 0.6
 
     def __init__(self, newRunnerCallback: Callable[..., Awaitable[Runner]]) -> None:
         self.newRunner = newRunnerCallback
@@ -90,11 +100,12 @@ class ProcessWatcher:
         print("WATCHER STARTED")
         while True:
             await self.refreshState()
-            await asyncio.sleep(self._watchSleepTime)
+            await asyncio.sleep(STATE_WATCHER_SLEEP_TIME)
 
     async def runWatcher(self):
         if self.watchTask is None:
             self.watchTask = asyncio.get_running_loop().create_task(self.watch())
+            print("Watcher started.")
     
     _watcherStopTimeout = 4
     _watcherStopInterval = 0.1
@@ -112,7 +123,6 @@ class ProcessWatcher:
         print("WATCHER STOPPED")
         self.watchTask = None
 
-    _executionTimeout = 50
     async def execute(self, waitForCompletion: bool = False):
         await self.stopWatcher() # the watcher might currently access the stdout.readline() method. Python throws a RuntimeError when we then also access it.
         await self.refreshState()
@@ -127,14 +137,14 @@ class ProcessWatcher:
         await self.runWatcher()
         if waitForCompletion:
             i = 0
-            while await execute_runner.getState() != RunnerStates.FINISHED and i < self._executionTimeout/self._watchSleepTime: # let the watcher do the state checking
-                await asyncio.sleep(self._watchSleepTime)
+            while await execute_runner.getState() != RunnerStates.FINISHED and i < WAIT_FOR_COMPLETION_TIMEOUT/WAIT_FOR_COMPLETION_SLEEP_TIME: # let the watcher do the state checking
+                await asyncio.sleep(WAIT_FOR_COMPLETION_SLEEP_TIME)
                 # await execute_runner.updateLog()
                 i += 1
 
-            if i >= self._executionTimeout/self._watchSleepTime:
-                execute_runner.lines.insert(0, f"ABORTED AFTER {self._executionTimeout} SECONDS")
-                print(f"ABORTED AFTER {self._executionTimeout} SECONDS.")
+            if i >= WAIT_FOR_COMPLETION_TIMEOUT/WAIT_FOR_COMPLETION_SLEEP_TIME:
+                execute_runner.lines.insert(0, f"ABORTED AFTER {WAIT_FOR_COMPLETION_TIMEOUT} SECONDS")
+                print(f"ABORTED AFTER {WAIT_FOR_COMPLETION_TIMEOUT} SECONDS.")
                 if isinstance(execute_runner, LatexRunner):
                     print("PID", execute_runner.process.pid)
         await execute_runner.updateLog()
@@ -157,7 +167,8 @@ class LatexRunner(Runner):
         self = LatexRunner(outputDirectory=outputDirectory, currentOutputDirectory=tempOutputDirectory)
         self.process = await asyncio.create_subprocess_shell(command, stdin=PIPE, stdout=PIPE, cwd=workingDirectory)
         self._state = RunnerStates.PREPARING
-        print("Created new LaTeX runner with PID", self.process.pid, f"(process ID as seen in the task manager) and command\n\t{command}")
+        self.lines.append("I am a LaTeX runner with PID {self.process.pid} (process ID as seen in the task manager) and command\n\t{command}.")
+        print(f"Created new LaTeX runner with PID {self.process.pid} (process ID as seen in the task manager) and command\n\t{command}.")
         return self
 
     async def checkIfProcessTerminated(self):
@@ -168,11 +179,11 @@ class LatexRunner(Runner):
 
     async def getState(self) -> RunnerStates:
         if self._state != RunnerStates.FINISHED and await self.checkIfProcessTerminated():
-            print("A runner has finished! PID: ", self.process.pid)
+            print(f"A runner has finished with returncode {self.process.returncode}! PID: {self.process.pid}")
             self._state = RunnerStates.FINISHED
         if self._state == RunnerStates.PREPARING:
-            for line in await self.updateLog(log=True):
-                if "\\pauseExecution" in line:
+            for line in await self.updateLog(): # log=True
+                if HALT_LOG in line:
                     self._state = RunnerStates.WAITING
                     print("This runner has switched to the waiting state! PID:", self.process.pid)
                     break
@@ -209,7 +220,7 @@ class LatexRunner(Runner):
                         self.process.stdout.readline(),
                         timeout = timeout
                     )
-                ).decode("utf-8").strip()
+                ).decode("utf-8", errors='replace').strip()
                 if log:
                     print('\t\t', line.strip())
                 lines.append(line)
@@ -217,7 +228,7 @@ class LatexRunner(Runner):
                 # print("Buffered latex log output exceeded! PID:", process.pid)
                 break
         else:
-            lines = (await self.process.stdout.read()).decode('utf8').splitlines()
+            lines = (await self.process.stdout.read()).decode('utf-8', errors='replace').splitlines()
         print("\tRead", len(lines), "lines from process", self.process.pid)
         self.lines.extend(lines)
         return lines
@@ -241,19 +252,25 @@ def newWatcher(texFile: PathOrString, output_dir):
     if output_dir is None:
         output_dir = "out"
     outputDirectory = texFile.parent / output_dir
-    tempOutputDirectory = outputDirectory / datetime.now().strftime("%H-%M-%S")
-    if tempOutputDirectory.exists():
-        tempOutputDirectory = tempOutputDirectory.with_name(tempOutputDirectory.name + "_")
+
     async def newRunner():
-        powershellCommand = f"""
-            $Env:LATEX_ALLOW_PAUSE_EXECUTION="true";
-            lualatex --recorder --file-line-error --interaction=nonstopmode --synctex=1 --output-directory="{tempOutputDirectory}" "{texFile.name}";
-            Start-Sleep 1;
-            cp "{tempOutputDirectory}\\*" "{outputDirectory}";
-        """.strip().replace('\n',' ').replace('"','\\"')
+        tempOutputDirectory = outputDirectory / datetime.now().strftime("%H-%M-%S")
+        if tempOutputDirectory.exists():
+            tempOutputDirectory = tempOutputDirectory.with_name(tempOutputDirectory.name + "_")
+        os.makedirs(tempOutputDirectory)
+        
+        workingDirectory=texFile.parent
+        
+        powershellCommand = BASE_POWERSHELL_COMMAND \
+            .strip() \
+            .replace('{tempOutputDirectory}', str(tempOutputDirectory.relative_to(workingDirectory))) \
+            .replace('{outputDirectory}', str(outputDirectory.relative_to(workingDirectory))) \
+            .replace('{fileName}', texFile.stem) \
+            .replace('\n',' ') \
+            .replace('"','\\"') # it is run in cmd, so we need the powershell -c "{...}"
         return await LatexRunner.newRunner(
-            command = f'powershell -c {powershellCommand}',
-            workingDirectory=texFile.parent,
+            command = f'powershell -c "{powershellCommand}"',
+            workingDirectory=workingDirectory,
             outputDirectory=outputDirectory,
             tempOutputDirectory= tempOutputDirectory
         )
@@ -276,7 +293,7 @@ async def do_execute(texFile: str, output_dir = None):
         watcher = watchers[texFile]
     return await watcher.execute(waitForCompletion=True)
 
-def mainAsServer(port, texFile: PathOrString = None, output_dir=None):
+def mainAsServer(port, texFile: PathOrString = '', output_dir: PathOrString = ''):
     """ Run the server. Blocks until stopped by GET request to f"http://localhost:{port}/stopServer{ROUTE_OBFUSCATION}" """
     from aiohttp import web
     app = web.Application()
@@ -296,7 +313,7 @@ def mainAsServer(port, texFile: PathOrString = None, output_dir=None):
     ])
 
     async def startup():
-        if texFile is not None:
+        if texFile != '':
             asyncio.get_event_loop().create_task(
                 do_execute(texFile=texFile, output_dir=output_dir) # wrapped in this startup stuff because we only have async from web.run_app
             )
@@ -353,7 +370,11 @@ def main(tex_file, output_dir, port, start_server_on_demand, server, stop_server
         print("Your compilation will be done, but you won't see the logs here.")
     if tex_file != '' and not portFree:
         print("Sending request to server (background worker)")
-        print(requests.post(f"http://localhost:{port}/{ROUTE_OBFUSCATION}", data=str(tex_file).encode('utf8')).content.decode('utf8'))
+        sendData = str(tex_file).encode('utf8')
+        requestResult = requests.post(f"http://localhost:{port}/{ROUTE_OBFUSCATION}", data=sendData)
+        content = requestResult.content
+        text = content.decode('utf8')
+        print(text)
         print("Server finished.")
 
 
