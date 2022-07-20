@@ -40,8 +40,11 @@ STATE_WATCHER_SLEEP_TIME = 2
 BASE_POWERSHELL_COMMAND = """           
     cp "{outputDirectory}\\{fileName}*" "{tempOutputDirectory}";
     $Env:LATEX_ALLOW_PAUSE_EXECUTION="true";
+    xindex -k "{tempOutputDirectory}\\{fileName}";
+    biber "{tempOutputDirectory}\\{fileName}";
     lualatex --recorder --file-line-error --interaction=nonstopmode --synctex=1 --output-directory="{tempOutputDirectory}" "{fileName}";
     cp "{tempOutputDirectory}\\{fileName}*" "{outputDirectory}";
+    rm -r "{tempOutputDirectory}"
 """
 
 class RunnerStates(Enum):
@@ -179,7 +182,7 @@ class LatexRunner(Runner):
 
     async def getState(self) -> RunnerStates:
         if self._state != RunnerStates.FINISHED and await self.checkIfProcessTerminated():
-            print(f"A runner has finished with returncode {self.process.returncode}! PID: {self.process.pid}")
+            print(f"A runner has finished with returncode {self.process.returncode}! PID: {self.process.pid} and folder {self.outputDirectory}")
             self._state = RunnerStates.FINISHED
         if self._state == RunnerStates.PREPARING:
             for line in await self.updateLog(): # log=True
