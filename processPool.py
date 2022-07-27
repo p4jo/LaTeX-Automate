@@ -8,15 +8,6 @@ import contextlib
 from datetime import datetime
 from pathlib import Path
 
-# types
-from enum import Enum
-from abc import ABCMeta, abstractmethod
-from typing import Awaitable, Callable, Dict, List, Union
-
-from win32process import DETACHED_PROCESS
-
-PathOrString = Union[os.PathLike, str]
-
 # quasi builtin
 import socket
 import asyncio
@@ -24,11 +15,20 @@ from asyncio.subprocess import PIPE, Process
 
 import requests
 
+# types
+from enum import Enum
+from abc import ABCMeta, abstractmethod
+from typing import Awaitable, Callable, Dict, List, Optional, Union
+
+from win32process import DETACHED_PROCESS
+
 # command line interface
 import click
+
+PathOrString = Union[os.PathLike, str]
 #endregion
 
-# constants
+#region constants
 ROUTE_OBFUSCATION = 'aosijfoaisdoifnasodnifaosinf'
 DEFAULT_PORT = 65012
 HALT_LOG = "PAUSED EXECUTION!"
@@ -37,16 +37,19 @@ WAIT_FOR_COMPLETION_SLEEP_TIME = 0.5
 WAIT_FOR_COMPLETION_TIMEOUT = 60
 STATE_WATCHER_SLEEP_TIME = 2
 
-BASE_POWERSHELL_COMMAND = """           
-    cp "{outputDirectory}\\{fileName}*" "{tempOutputDirectory}";
-    $Env:LATEX_ALLOW_PAUSE_EXECUTION="true";
-    xindex -k "{tempOutputDirectory}\\{fileName}";
-    biber "{tempOutputDirectory}\\{fileName}";
-    lualatex --recorder --file-line-error --interaction=nonstopmode --synctex=1 --output-directory="{tempOutputDirectory}" "{fileName}";
-    cp "{tempOutputDirectory}\\{fileName}*" "{outputDirectory}";
-    rm -r "{tempOutputDirectory}"
+BASE_POWERSHELL_COMMAND = """
+mkdir "{tempOutputDirectory}";
+cp "{outputDirectory}\\{fileName}*" "{tempOutputDirectory}";
+$Env:LATEX_ALLOW_PAUSE_EXECUTION="true";
+xindex -k "{tempOutputDirectory}\\{fileName}";
+biber "{tempOutputDirectory}\\{fileName}";
+lualatex --recorder --file-line-error --interaction=nonstopmode --synctex=1 --output-directory="{tempOutputDirectory}" "{fileName}";
+cp "{tempOutputDirectory}\\{fileName}*" "{outputDirectory}";
+rm -r "{tempOutputDirectory}"
 """
 
+#endregion
+#region Watcher
 class RunnerStates(Enum):
     PREPARING = 0
     WAITING = 1
@@ -154,23 +157,24 @@ class ProcessWatcher:
         print("Execution finished. PID:", execute_runner.process.pid)
         return "\n".join(execute_runner.lines)
 
+#endregion
 
+#region 
 class LatexRunner(Runner):
 
-    def __init__(self, outputDirectory, currentOutputDirectory) -> None:
+    def __init__(self, info: str) -> None:
         """ Call the async static method newRunner instead """
         super().__init__()
         self.process: Process = None
         self._state: RunnerStates = None
-        self.outputDirectory = outputDirectory
-        self.currentOutputDirectory = currentOutputDirectory
+        self.info = info
 
     @staticmethod
-    async def newRunner(command: str = "lualatex test", workingDirectory: PathOrString = None, outputDirectory: PathOrString = None, tempOutputDirectory: PathOrString = None) -> Runner:
-        self = LatexRunner(outputDirectory=outputDirectory, currentOutputDirectory=tempOutputDirectory)
+    async def newRunner(command: str, workingDirectory: PathOrString = None, info: str = "") -> Runner:
+        self = LatexRunner(info = info)
         self.process = await asyncio.create_subprocess_shell(command, stdin=PIPE, stdout=PIPE, cwd=workingDirectory)
         self._state = RunnerStates.PREPARING
-        self.lines.append("I am a LaTeX runner with PID {self.process.pid} (process ID as seen in the task manager) and command\n\t{command}.")
+        self.lines.append(f"I am a LaTeX runner with PID {self.process.pid} (process ID as seen in the task manager) and command\n\t{command}.")
         print(f"Created new LaTeX runner with PID {self.process.pid} (process ID as seen in the task manager) and command\n\t{command}.")
         return self
 
@@ -182,7 +186,7 @@ class LatexRunner(Runner):
 
     async def getState(self) -> RunnerStates:
         if self._state != RunnerStates.FINISHED and await self.checkIfProcessTerminated():
-            print(f"A runner has finished with returncode {self.process.returncode}! PID: {self.process.pid} and folder {self.outputDirectory}")
+            print(f"A runner has finished with returncode {self.process.returncode}! PID: {self.process.pid}. {self.info}")
             self._state = RunnerStates.FINISHED
         if self._state == RunnerStates.PREPARING:
             for line in await self.updateLog(): # log=True
@@ -235,17 +239,11 @@ class LatexRunner(Runner):
         print("\tRead", len(lines), "lines from process", self.process.pid)
         self.lines.extend(lines)
         return lines
+#endregion
 
+#region cli (main)
 
-# async def main():     
-#     while True:
-#         input("Press Enter to start a run")
-#         await watcher.execute()
-
-# if __name__ == '__main__':
-#     asyncio.run(main())
-
-def newWatcher(texFile: PathOrString, output_dir):
+def newWatcher(texFile: PathOrString, output_dir: PathOrString):
     if texFile is None or texFile == "":
         return None
     texFile = Path(texFile).with_suffix('.tex')
@@ -257,31 +255,54 @@ def newWatcher(texFile: PathOrString, output_dir):
     outputDirectory = texFile.parent / output_dir
 
     async def newRunner():
-        tempOutputDirectory = outputDirectory / datetime.now().strftime("%H-%M-%S")
-        if tempOutputDirectory.exists():
-            tempOutputDirectory = tempOutputDirectory.with_name(tempOutputDirectory.name + "_")
-        os.makedirs(tempOutputDirectory)
-        
-        workingDirectory=texFile.parent
-        
-        powershellCommand = BASE_POWERSHELL_COMMAND \
-            .strip() \
-            .replace('{tempOutputDirectory}', str(tempOutputDirectory.relative_to(workingDirectory))) \
-            .replace('{outputDirectory}', str(outputDirectory.relative_to(workingDirectory))) \
-            .replace('{fileName}', texFile.stem) \
-            .replace('\n',' ') \
-            .replace('"','\\"') # it is run in cmd, so we need the powershell -c "{...}"
+        tempOutputDirectory = getTempOutputDirectory(outputDirectory)
+                
         return await LatexRunner.newRunner(
-            command = f'powershell -c "{powershellCommand}"',
-            workingDirectory=workingDirectory,
-            outputDirectory=outputDirectory,
-            tempOutputDirectory= tempOutputDirectory
+            command = getCMDCommand(tempOutputDirectory, outputDirectory,  texFile),
+            workingDirectory=texFile.parent,
+            info=f"outputDirectory={outputDirectory}, tempOutputDirectory={tempOutputDirectory}"
         )
 
     return ProcessWatcher(newRunner)
 
+def getTempOutputDirectory(outputDirectory: Path):
+    tempOutputDirectory = outputDirectory / datetime.now().strftime("%H-%M-%S")
+    while tempOutputDirectory.exists():
+        tempOutputDirectory = tempOutputDirectory.with_name(tempOutputDirectory.name + "_")
+    return tempOutputDirectory
+
+
+def getPowershellCommand(
+        tempOutputDirectory: Optional[PathOrString],
+        outputDirectory: PathOrString,
+        texFile: PathOrString
+    ):
+    outputDirectory = Path(outputDirectory)
+    texFile = Path(texFile)
+    if tempOutputDirectory is not None:
+        tempOutputDirectory = Path(tempOutputDirectory)
+    else:
+        tempOutputDirectory = getTempOutputDirectory(outputDirectory)
+
+    return BASE_POWERSHELL_COMMAND \
+        .strip() \
+        .replace('{outputDirectory}', str(outputDirectory.relative_to( texFile.parent ))) \
+        .replace('{tempOutputDirectory}', str(tempOutputDirectory.relative_to( texFile.parent ))) \
+        .replace('{fileName}',  texFile.stem) \
+        .replace('\n',' ') 
+
+def getCMDCommand(
+        tempOutputDirectory: Optional[PathOrString],
+        outputDirectory: PathOrString,
+        texFile: PathOrString
+    ):
+    # it is run in cmd, so we need the powershell -c "{...}"
+    return 'powershell -c "' + getPowershellCommand(tempOutputDirectory, outputDirectory, texFile).replace('"', '\\"')  + '"'
+
+
+
 watchers: Dict[str, ProcessWatcher] = {}
-async def do_execute(texFile: str, output_dir = None):
+async def do_execute(texFile: str, output_dir: PathOrString = None):
     if texFile is None or texFile == '':
         print("No file path provided!")
         return
@@ -338,7 +359,12 @@ def portIsFree(port):
 @click.option("--start-server-on-demand/--no-server", "--s,--c", "-s/-c", default=True, help="Start a server in a background process if the port is still free. Enabled by default.")
 @click.option("--server", is_flag=True, help="Run the server right here. This script will not end by itself.")
 @click.option("--stop-server", is_flag=True, help="Stop the already running server by sending a request. Continue as normal after 1 s.")
-def main(tex_file, output_dir, port, start_server_on_demand, server, stop_server):
+@click.option("--print-command", "-c", "--c", "--command", "--pc", "-pc", is_flag=True, help="Only show the powershell command and quit.")
+def main(tex_file, output_dir, port, start_server_on_demand, server, stop_server, print_command):
+    if print_command:
+        print(getPowershellCommand(None, output_dir, tex_file))
+        return
+
     portFree = portIsFree(port)
     if stop_server and not portFree:
         try:

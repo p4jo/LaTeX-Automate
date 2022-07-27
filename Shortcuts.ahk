@@ -40,6 +40,9 @@ return
 ^!f::
 	Send φ
 return
+^!a::
+	Send α
+return
 
 ^!n::
 	Send ν
@@ -334,6 +337,19 @@ return
 	return
 	#+,::
 		Send \qty[
+	return
+	
+	^!+7::
+		Send \qty{{}
+	return
+	^!+8::
+		Send \qty[
+	return
+	^!+9::
+		Send ]
+	return
+	^!+0::
+		Send {}}
 	return
 
 	^!ö::
