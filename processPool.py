@@ -32,6 +32,7 @@ PathOrString = Union[os.PathLike, str]
 ROUTE_OBFUSCATION = 'aosijfoaisdoifnasodnifaosinf'
 DEFAULT_PORT = 65012
 HALT_LOG = "PAUSED EXECUTION!"
+VERBOSE = False
 
 WAIT_FOR_COMPLETION_SLEEP_TIME = 0.5
 WAIT_FOR_COMPLETION_TIMEOUT = 60
@@ -153,7 +154,7 @@ class ProcessWatcher:
                 print(f"ABORTED AFTER {WAIT_FOR_COMPLETION_TIMEOUT} SECONDS.")
                 if isinstance(execute_runner, LatexRunner):
                     print("PID", execute_runner.process.pid)
-        await execute_runner.updateLog()
+        await execute_runner.updateLog(log = VERBOSE)
         print("Execution finished. PID:", execute_runner.process.pid)
         return "\n".join(execute_runner.lines)
 
@@ -189,7 +190,7 @@ class LatexRunner(Runner):
             print(f"A runner has finished with returncode {self.process.returncode}! PID: {self.process.pid}. {self.info}")
             self._state = RunnerStates.FINISHED
         if self._state == RunnerStates.PREPARING:
-            for line in await self.updateLog(): # log=True
+            for line in await self.updateLog(log=VERBOSE):
                 if HALT_LOG in line:
                     self._state = RunnerStates.WAITING
                     print("This runner has switched to the waiting state! PID:", self.process.pid)
@@ -360,11 +361,13 @@ def portIsFree(port):
 @click.option("--server", is_flag=True, help="Run the server right here. This script will not end by itself.")
 @click.option("--stop-server", is_flag=True, help="Stop the already running server by sending a request. Continue as normal after 1 s.")
 @click.option("--print-command", "-c", "--c", "--command", "--pc", "-pc", is_flag=True, help="Only show the powershell command and quit.")
-def main(tex_file, output_dir, port, start_server_on_demand, server, stop_server, print_command):
+@click.option("--verbose", "-v", "--v", is_flag=True, help="Show the complete output of the child processes.")
+def main(tex_file, output_dir, port, start_server_on_demand, server, stop_server, print_command, verbose):
     if print_command:
         print(getPowershellCommand(None, output_dir, tex_file))
         return
-
+    global VERBOSE
+    VERBOSE = verbose
     portFree = portIsFree(port)
     if stop_server and not portFree:
         try:
