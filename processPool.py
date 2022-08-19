@@ -1,6 +1,8 @@
 #region Imports
 # builtin
+import itertools
 import os
+import random
 import subprocess
 import sys
 import time
@@ -34,6 +36,7 @@ DEFAULT_PORT = 65012
 HALT_LOG = "PAUSED EXECUTION!"
 VERBOSE = False
 
+PROCESS_TIMEOUT = 15
 WAIT_FOR_COMPLETION_SLEEP_TIME = 0.5
 WAIT_FOR_COMPLETION_TIMEOUT = 60
 STATE_WATCHER_SLEEP_TIME = 2
@@ -47,7 +50,7 @@ biber "{tempOutputDirectory}\\{fileName}";
 lualatex --recorder --file-line-error --interaction=nonstopmode --synctex=1 --output-directory="{tempOutputDirectory}" "{fileName}";
 cp "{tempOutputDirectory}\\{fileName}*" "{outputDirectory}";
 rm -r "{tempOutputDirectory}"
-"""
+""" #  --max-print-line=300 doesn't work with miktex and lualatex. Add max-print-line=300 to  initexmf --edit-config-file lualatex
 
 #endregion
 #region Watcher
@@ -57,9 +60,15 @@ class RunnerStates(Enum):
     RUNNING = 2
     FINISHED = 3
 
+class ErrorStates(Enum):
+    NONE = 0
+    RETURN_CODE_NONZERO = 1
+    NEVER_WAITED = 2
+
 class Runner(metaclass = ABCMeta):
     def __init__(self) -> None:
         self.lines: List[str] = []
+        self.errorState = ErrorStates.NONE
 
     @abstractmethod
     async def getState(self)->RunnerStates:
@@ -70,7 +79,9 @@ class Runner(metaclass = ABCMeta):
     @abstractmethod
     async def updateLog(self):
         pass
-
+    @abstractmethod
+    async def stop(self):
+        pass
     @staticmethod
     @abstractmethod
     async def newRunner():
@@ -83,29 +94,46 @@ class ProcessWatcher:
         self.newRunner = newRunnerCallback
 
         self.runners: List[Runner] = []
-        self.oldRunners: List[Runner] = []
+        self.runningRunners: List[Runner] = []
         self.watchTask: asyncio.Task = None
-        
+        self.finishResults = {errorState: 0 for errorState in [ErrorStates.NEVER_WAITED, ErrorStates.RETURN_CODE_NONZERO, ErrorStates.NONE]}        
+        self.exited = False
 
-    async def refreshState(self):
+    async def refreshState(self):        
+        if self.exited:
+            return
+        if self.finishResults[ErrorStates.NEVER_WAITED] > 2:
+            await self.exit()
+            return
         availableRunners: List[Runner] = []
+        runningRunners: List[Runner] = []
 
-        for runner in self.runners:
+        for runner in itertools.chain(self.runners, self.runningRunners):
             state = await runner.getState()
-            if state == RunnerStates.FINISHED or state == RunnerStates.RUNNING:
-                self.oldRunners.append(runner)
-            if state == RunnerStates.WAITING or state == RunnerStates.PREPARING:
+            if state == RunnerStates.FINISHED:
+                self.finishResults[runner.errorState] += 1
+            elif state == RunnerStates.RUNNING:
+                runningRunners.append(runner)
+            elif state == RunnerStates.WAITING or state == RunnerStates.PREPARING:
                 availableRunners.append(runner)
         
         self.runners = availableRunners
+        self.runningRunners = runningRunners
         
         for _ in range(len(self.runners), self.minNumberAvailable):
             print(f"Only {len(self.runners)}/{self.minNumberAvailable} runners available, starting a new runner ") #of type", self.T.__name__)
             self.runners.append(await self.newRunner())
+        
+    async def exit(self):
+        print("ABORTING!")
+        self.exited = True
+        await self.stopWatcher()
+        for runner in itertools.chain(self.runners, self.runningRunners):
+            await runner.stop()
             
     async def watch(self):
         print("WATCHER STARTED")
-        while True:
+        while not self.exited:
             await self.refreshState()
             await asyncio.sleep(STATE_WATCHER_SLEEP_TIME)
 
@@ -131,11 +159,16 @@ class ProcessWatcher:
         self.watchTask = None
 
     async def execute(self, waitForCompletion: bool = False):
+        if self.exited: 
+            print("I already had", self.finishResults[ErrorStates.NONE], "successful compilations", self.finishResults[ErrorStates.RETURN_CODE_NONZERO], "nonzero return codes from runners, and", self.finishResults[ErrorStates.NEVER_WAITED], "runners that never waited. \n ABORTING because that is too much!)" )
+            return
+       
         await self.stopWatcher() # the watcher might currently access the stdout.readline() method. Python throws a RuntimeError when we then also access it.
-        await self.refreshState()
+        await self.refreshState() 
+        print("Will finish a compilation. I already had", self.finishResults[ErrorStates.NONE], "successful compilations", self.finishResults[ErrorStates.RETURN_CODE_NONZERO], "nonzero return codes from runners, and", self.finishResults[ErrorStates.NEVER_WAITED], "runners that never waited (I will abort after 3)" )
 
         execute_runner = self.runners[0]
-        for runner in self.runners:
+        for runner in self.runners: # look for a waiting runner
             if await runner.getState() == RunnerStates.WAITING:
                execute_runner = runner
                break
@@ -169,10 +202,12 @@ class LatexRunner(Runner):
         self.process: Process = None
         self._state: RunnerStates = None
         self.info = info
+        self._lastLogTime = 0
 
     @staticmethod
     async def newRunner(command: str, workingDirectory: PathOrString = None, info: str = "") -> Runner:
         self = LatexRunner(info = info)
+        self._lastLogTime = time.time()
         self.process = await asyncio.create_subprocess_shell(command, stdin=PIPE, stdout=PIPE, cwd=workingDirectory)
         self._state = RunnerStates.PREPARING
         self.lines.append(f"I am a LaTeX runner with PID {self.process.pid} (process ID as seen in the task manager) and command\n\t{command}.")
@@ -182,13 +217,30 @@ class LatexRunner(Runner):
     async def checkIfProcessTerminated(self):
         with contextlib.suppress(asyncio.TimeoutError):
             await asyncio.wait_for(self.process.wait(), 1e-6)
-        return self.process.returncode is not None
+        if self.process.returncode is not None:
+            return True
+        if self._state != RunnerStates.WAITING and \
+                self._lastLogTime < time.time() - PROCESS_TIMEOUT and \
+                (await self.updateLog() or True) and \
+                self._lastLogTime < time.time() - PROCESS_TIMEOUT:
+            self.process.kill()
+            print("KILLED RUNNER WITH PID", self.process.pid, "after it didn't output anything for", time.time() -self._lastLogTime, "seconds.")
+            print('The last lines of its output are:', *self.lines[-10:] , sep='\n\t')
+            print("-" * 20)
+            return True
+        return False
 
 
     async def getState(self) -> RunnerStates:
         if self._state != RunnerStates.FINISHED and await self.checkIfProcessTerminated():
             print(f"A runner has finished with returncode {self.process.returncode}! PID: {self.process.pid}. {self.info}")
+            if self._state == RunnerStates.PREPARING:
+                self.errorState = ErrorStates.NEVER_WAITED
+                print("BUT IT NEVER WAITED! IF THIS HAPPENS TO OFTEN I'LL ABORT. PUT \pauseExecution SOMEWHERE IN YOUR DOCUMENT.")
+            elif self.process.returncode != 0:
+                self.errorState == ErrorStates.RETURN_CODE_NONZERO
             self._state = RunnerStates.FINISHED
+
         if self._state == RunnerStates.PREPARING:
             for line in await self.updateLog(log=VERBOSE):
                 if HALT_LOG in line:
@@ -214,9 +266,17 @@ class LatexRunner(Runner):
             # await readlines_alreadyWritten(self.process)
             self.process.stdin.write(b"\r\n")
             self._state = RunnerStates.RUNNING
+            self._lastLogTime = time.time()
             # actually wait for new output
             # await readlines_alreadyWritten(self.process, timeout=1, log=True) # doesn't stop when process is done...
         # await self.getState()
+
+    async def stop(self):
+        if await self.checkIfProcessTerminated():
+            try:
+                self.process.kill() 
+            except ProcessLookupError:
+                pass
 
         
     async def updateLog(self, timeout: float = 0.05, log: bool = False) -> list:
@@ -230,15 +290,17 @@ class LatexRunner(Runner):
                     )
                 ).decode("utf-8", errors='replace').strip()
                 if log:
-                    print('\t\t', line.strip())
+                    print('\t\t', line)
                 lines.append(line)
             except asyncio.TimeoutError:
                 # print("Buffered latex log output exceeded! PID:", process.pid)
                 break
         else:
             lines = (await self.process.stdout.read()).decode('utf-8', errors='replace').splitlines()
-        print("\tRead", len(lines), "lines from process", self.process.pid)
-        self.lines.extend(lines)
+        if len(lines) > 0:
+            self._lastLogTime = time.time()
+            print("\tRead", len(lines), "lines from process", self.process.pid)
+            self.lines.extend(lines)
         return lines
 #endregion
 
@@ -267,7 +329,7 @@ def newWatcher(texFile: PathOrString, output_dir: PathOrString):
     return ProcessWatcher(newRunner)
 
 def getTempOutputDirectory(outputDirectory: Path):
-    tempOutputDirectory = outputDirectory / datetime.now().strftime("%H-%M-%S")
+    tempOutputDirectory = outputDirectory / (datetime.now().strftime("%H-%M-%S") + f"({random.randint(1000,9999)})")
     while tempOutputDirectory.exists():
         tempOutputDirectory = tempOutputDirectory.with_name(tempOutputDirectory.name + "_")
     return tempOutputDirectory
