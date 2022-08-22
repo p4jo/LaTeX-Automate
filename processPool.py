@@ -3,6 +3,8 @@
 import itertools
 import os
 import random
+import re
+import shutil
 import subprocess
 import sys
 import time
@@ -41,6 +43,7 @@ WAIT_FOR_COMPLETION_SLEEP_TIME = 0.5
 WAIT_FOR_COMPLETION_TIMEOUT = 60
 STATE_WATCHER_SLEEP_TIME = 2
 
+OLD_TEMP_DIR_TIMEOUT_MIN = 15
 BASE_POWERSHELL_COMMAND = """
 mkdir "{tempOutputDirectory}";
 cp "{outputDirectory}\\{fileName}*" "{tempOutputDirectory}";
@@ -320,6 +323,8 @@ def newWatcher(texFile: PathOrString, output_dir: PathOrString):
     async def newRunner():
         tempOutputDirectory = getTempOutputDirectory(outputDirectory)
                 
+        clearOldTempDirectories(tempOutputDirectory.parent)
+
         return await LatexRunner.newRunner(
             command = getCMDCommand(tempOutputDirectory, outputDirectory,  texFile),
             workingDirectory=texFile.parent,
@@ -328,6 +333,19 @@ def newWatcher(texFile: PathOrString, output_dir: PathOrString):
 
     return ProcessWatcher(newRunner)
 
+def clearOldTempDirectories(directory: Path):
+    for dir in directory.iterdir():
+        if dir.is_dir() and tempFolderRegex.match(dir.name):
+            now = datetime.now()
+            currentMod = now.hour * 60 + now.minute
+            mod = int(dir.name[:2]) * 60 + int(dir.name[3:5])
+            if currentMod > OLD_TEMP_DIR_TIMEOUT_MIN and (mod > currentMod or mod < currentMod - OLD_TEMP_DIR_TIMEOUT_MIN):
+                try:
+                    shutil.rmtree(dir)
+                except:
+                    pass
+
+tempFolderRegex = re.compile("^[0-9][0-9]-[0-9][0-9]-[0-9][0-9]")
 def getTempOutputDirectory(outputDirectory: Path):
     tempOutputDirectory = outputDirectory / (datetime.now().strftime("%H-%M-%S") + f"({random.randint(1000,9999)})")
     while tempOutputDirectory.exists():
