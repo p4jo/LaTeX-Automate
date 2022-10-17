@@ -28,8 +28,14 @@ return
 
 ; Extrazeichen auf AltGr und Hotstrings
 
+^!r::
+	Send ρ
+return
 
 ^!U::
+	Send θ
+return
++^!U::
 	Send Θ
 return
 
@@ -54,6 +60,9 @@ return
 
 ^!l::
 	Send λ
+return
++^!l::
+	Send Λ
 return
 
 ^!t::
@@ -122,10 +131,10 @@ return
 	SendEvent ´
 return
 
-^!w::
-	Send, ^2
+^!w:: ; Verwende #F7 zuerst, s. u.
+	Send, ^9 ; Griechische Tastatur
 	Sleep, 800
-	Send ^1		
+	Send ^8	; Deutsche Tastatur
 return
 
 #0::
@@ -234,6 +243,10 @@ return
 	::=: ::
 		Send % "≕ "
 	return
+
+	::rrr::
+		Send ℝ
+	return
 #IfWinNotActive
 
 
@@ -271,6 +284,10 @@ return
 		Send \frac
 	return
 	
+	+7::
+		Send % "\over "
+	return
+
 	##::
 		Send \sfrac
 	return
@@ -303,6 +320,10 @@ return
 
 	^!g::
 		Send \Gleichung
+	return
+
+	^!h::
+		Send \hquer
 	return
 
 	$3::
@@ -469,68 +490,66 @@ return
 	KeyWait, F7
 	Send, #i
 	WinWaitActive, Einstellung
-	Sleep, 100
+		Sleep, 100
 
-	Send {Alt Down}{F4}{Alt Up} ; Um danach die Einstellungen auf der Hauptseite zu starten
+		Send {Alt Down}{F4}{Alt Up} ; Um danach die Einstellungen auf der Hauptseite zu starten
 	Sleep, 100
 	Send, #i
 	WinWaitActive, Einstellung
-	Sleep, 1500
+		Sleep, 1500
 
-	Send, erweiterte{Space}tast{Enter}
+		Send, erweiterte{Space}tast{Enter}
 
-	Sleep, 500
+		Sleep, 500
 
-	Send {Enter} ; Erweiterte Tastatureinstellungen
-	Sleep 200
+		Send {Enter} ; Erweiterte Tastatureinstellungen
+		Sleep 200
 
-	Send, {Tab}
-	Sleep 100
-	Send, {Tab}
-	Sleep 100
-	Send, {Tab}
+		Send, {Tab}
+		Sleep 100
+		Send, {Tab}
+		Sleep 100
+		Send, {Tab}
+		Sleep, 100 		
+		Send, {Enter} ; Tastenkombination für Eingabesprachen
 
-	Sleep, 100 		
-	Send, {Enter} ; Tastenkombination für Eingabesprachen
+		WinWaitActive, Textdienste
+		Sleep, 150
 
-	WinWaitActive, Textdienste
-	Sleep, 150
+			Send, {Tab}
+			Sleep, 100
 
-	Send, {Tab}
-	Sleep, 100
+			Send, {Down}
+			Sleep, 100
 
-	Send, {Down}
-	Sleep, 100
+			Send, {Alt Down}n{Alt Up} ; Tastenkombination für Deutsche Tastatur eingeben
+			Sleep, 200
 
-	Send, {Alt Down}n{Alt Up} ; Tastenkombination für Deutsche Tastatur eingeben
+				Send, {Space}{Tab}{Tab}{Down 8} ; Anschalten und Tab + 8
+				Sleep, 100
 
-	Sleep, 200
+				Send {Enter} ; Fertig
+				Sleep, 200
 
-	Send, {Space}{Tab}{Tab}{Down}
-	Sleep, 100
+			Send {Down}{Down}
+			Sleep, 100
 
-	Send {Enter} ; Fertig
-	Sleep, 200
+			Send {Alt Down}n{Alt Up} ; Tastenkombination für griechische Tastatur eingeben
+			Sleep, 200
 
-	Send {Down}{Down}
-	Sleep, 100
+				Send {Space}{Tab}{Tab}{Down 8}  ; Anschalten und Tab + 9
+				Sleep, 200
 
-	Send {Alt Down}n{Alt Up} ;Tastenkombination für griechische Tastatur eingeben
-	Sleep, 200
+				Send {Enter} ;fertig
+				Sleep, 117
 
-	Send {Space}{Tab}{Tab}{Down}
-	Sleep, 200
+			Send {Alt Down}b{Alt Up} ; Übernehmen
 
-	Send {Enter} ;fertig
-	Sleep, 117
+			WinWaitActive, Textdienste
+			Send {Alt Down}{F4}{Alt Up} ; Pop-up-Fenster schließen
 
-	Send {Alt Down}b{Alt Up} ; Pop-up-Fenster schließen
-
-	WinWaitActive, Textdienste
-	Send {Alt Down}{F4}{Alt Up}
-
-	WinWaitActive, Einstellung
-	Send {Alt Down}{F4}{Alt Up}
+		WinWaitActive, Einstellung
+		Send {Alt Down}{F4}{Alt Up}
 
 	SendMode Input
 return
