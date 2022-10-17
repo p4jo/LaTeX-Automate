@@ -232,7 +232,7 @@ return
 	return
 
 	::=: ::
-		Send ≕
+		Send % "≕ "
 	return
 #IfWinNotActive
 
