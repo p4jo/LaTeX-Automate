@@ -1,0 +1,8 @@
+include "/usr/share/X11/locale/en_US.UTF-8/Compose"
+
+<Multi_key> <less> <equal> : "≤ "
+<Multi_key> <greater> <equal> : "≥ "
+<greater> <equal> : "≥ "
+<greater> <space> : ">"
+<Multi_key> <less> <m> : "⊆ "
+<Multi_key> <greater> <m> : "⊇ " 

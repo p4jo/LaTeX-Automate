@@ -26,7 +26,6 @@ from enum import Enum
 from abc import ABCMeta, abstractmethod
 from typing import Awaitable, Callable, Dict, List, Optional, Union
 
-from win32process import DETACHED_PROCESS
 PathOrString = Union[os.PathLike, str]
 
 #endregion
@@ -48,12 +47,12 @@ TOO_MANY_NONSTOP_RUNS_COOLDOWN = 180
 OLD_TEMP_DIR_TIMEOUT_MIN = 15
 BASE_POWERSHELL_COMMAND = """
 mkdir "{tempOutputDirectory}";
-cp "{outputDirectory}\\{fileName}*" "{tempOutputDirectory}";
+cp "{outputDirectory}/{fileName}*" "{tempOutputDirectory}";
 $Env:LATEX_ALLOW_PAUSE_EXECUTION="true";
-xindex -k "{tempOutputDirectory}\\{fileName}";
-biber "{tempOutputDirectory}\\{fileName}";
+xindex -k "{tempOutputDirectory}/{fileName}";
+biber "{tempOutputDirectory}/{fileName}";
 lualatex --recorder --file-line-error --interaction=nonstopmode --synctex=1 --output-directory="{tempOutputDirectory}" "{fileName}";
-cp "{tempOutputDirectory}\\{fileName}*" "{outputDirectory}";
+cp "{tempOutputDirectory}/{fileName}*" "{outputDirectory}";
 rm -r "{tempOutputDirectory}"
 """ #  --max-print-line=300 doesn't work with miktex and lualatex. Add max-print-line=300 to  initexmf --edit-config-file lualatex
 
@@ -418,7 +417,7 @@ def getCMDCommand(
         texFile: PathOrString
     ):
     # it is run in cmd, so we need the powershell -c "{...}"
-    return 'powershell -c "' + getPowershellCommand(tempOutputDirectory, outputDirectory, texFile).replace('"', '\\"')  + '"'
+    return 'pwsh -c "' + getPowershellCommand(tempOutputDirectory, outputDirectory, texFile).replace('"', '\\"')  + '"'
 
 
 watchers: Dict[str, ProcessWatcher] = {}
@@ -483,7 +482,14 @@ def portIsFree(port):
 
 def start_myself_in_background(args: List[str]) -> int:
     """ Argument "names" should begin with double dash: single dash arguments are interpreted as options to python (sys.executable) """
-    return subprocess.Popen([sys.executable, __file__, *args], creationflags=DETACHED_PROCESS, close_fds=True, shell=False).pid
+    if sys.platform == "Windows":
+        from win32process import DETACHED_PROCESS
+        # DETACHED_PROCESS = 0x00000008
+        kwargs= { 'creationflags': DETACHED_PROCESS }
+    else:
+        kwargs = {'start_new_session': True}
+
+    return subprocess.Popen([sys.executable, __file__, *args], close_fds=True, shell=False, **kwargs).pid
     
 #region main command line interface
 @click.command()

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=OneDrive
+Comment=Mounts OneDrive
+Exec=rclone mount OneDrive: ~/OneDrive/ --vfs-cache-mode writes
+Terminal=true
+Type=Application
+StartupNotify=true

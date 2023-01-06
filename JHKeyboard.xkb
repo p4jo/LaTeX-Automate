@@ -1,0 +1,160 @@
+
+// MY OWN
+alphanumeric_keys modifier_keys
+xkb_symbols "JHGerman" {
+    // none, shift, altgr, altgr+shift
+    name[Group1]="JHGermanDefault";
+    // ERSTE ZEILE (F-Tasten nicht mitgezählt) 
+    key <TLDE>	{[    asciicircum , degree,             dead_circumflex,          U2033 ]}; //  ^ 
+    key <AE01>	{ [         1,     exclam,  onesuperior,   1 ]	};
+    key <AE02>	{[          2,   doublequote,      twosuperior,      2 ]};
+    key <AE03>	{[          dollar,    rightdoublequotemark, 3,    3 ]};
+    key <AE04>	{[          dollar,     dollar,       4 ,       4 ]};
+    key <AE05>	{ [         5,    percent,      VoidSymbol, 5 ]	};
+    key <AE06>	{ [         ampersand,  ampersand,      6,  6 ]	};
+    key <AE07>	{ [         slash,  slash,    braceleft, 7 ]	};
+        // should be \qty[] 
+    key <AE08>	{ [         parenleft,  parenleft,  bracketleft,    8 ]	}; 
+    key <AE09>	{ [         parenright, parenright, bracketright,   9 ]	}; 
+    key <AE10>	{ [         0,      equal,   braceright,       0 ]	};
+    key <AE11>	{[     ssharp,   question,        backslash,   U1E9E,    U1E9E ], type[group1]="FOUR_LEVEL_PLUS_LOCK" }; // ẞ
+    key <AE12>	{[ backslash, grave,     dead_acute,    dead_grave ]};
+
+    // ZWEITE ZEILE (Erste für Buchstaben)
+    key <AD01>	{ [         q,          Q,           at,  U211A ]	}; // ℚ
+    key <AD02>	{ [         w,          W,       dead_greek ,      UFFEE ]	}; // JUST FOR XCOMPOSE  // ￮  
+    key <AD03>	{ [         e,          E,     Greek_epsilon,         EuroSign ]	};
+    key <AD04>	{ [         r,          R,    Greek_rho,   U211D ]	}; // ℝ
+    key <AD05>	{ [         t,          T,       Greek_tau,       Greek_TAU ]	};
+    key <AD06>	{[          z,          Z,        leftarrow,    rightarrow ]};
+    key <AD07>	{ [         u,          U,    rightarrow,      uparrow ]	};
+    key <AD08>	{ [         i,          I,   Greek_iota,     idotless ]	};
+    key <AD09>	{ [         o,          O,       oslash,     Ooblique ]	};
+    key <AD10>	{ [         p,          P,        Greek_pi,        Greek_PI ]	};
+    key <AD11>	{[ udiaeresis, Udiaeresis,   U221E, U221B ]}; // ∞, ∝
+    key <AD12>	{[       plus,   asterisk,       asciitilde,         plusminus ]};
+
+    // DRITTE ZEILE
+    key <AC01>	{ [         a,          A,           Greek_alpha,           AE ]	};
+    key <AC02>	{[          s,          S,            Greek_sigma,          Greek_SIGMA ]}; // should be \sum
+    key <AC03>	{ [         d,          D,          Greek_delta,  U2206 ]	}; // Or Greek_DELTA
+    key <AC04>	{ [         f,          F,      Greek_phi,  Greek_PHI ]	};
+    key <AC05>	{ [         g,          G,          Greek_gamma,          Greek_GAMMA ]	};
+    key <AC06>	{ [         h,          H,      U210F,      U210D ]	}; //should be \hquer // hstroke, Hstroke exists also // ℏ ℍ
+    key <AC07>	{[          j,          J,    Greek_xi,  Greek_XI ]};
+    key <AC08>	{ [         k,          K,          Greek_kappa,    U1D542 ]	}; // 𝕂
+    key <AC09>	{ [         l,          L,      Greek_lambda,      Greek_LAMBDA ]	};
+    key <AC10>	{[ odiaeresis, Odiaeresis, UFFED,  dead_belowdot ]}; // ￭
+    key <AC11>	{[ adiaeresis, Adiaeresis,  dead_circumflex,     dead_caron ]};
+    key <BKSL>	{[ numbersign, apostrophe, rightsinglequotemark, dead_breve ]}; // #''˘ // should have \frac
+
+
+    // VIERTE ZEILE
+    key <LSGT>	{[      less,     greater,            bar, dead_belowmacron ]}; // win+ should be \Qty<
+    key <AB01>	{[          y,          Y,   guillemotright,          U203A ]}; // » ›
+    key <AB02>	{[          x,          X,    guillemotleft,          U2039 ]}; // « ‹
+    key <AB03>	{ [         c,          C,         Greek_psi,    Greek_PSI ]	};
+    key <AB04>	{ [         v,          V,   Greek_omega, Greek_OMEGA ]	};
+    key <AB05>	{ [         b,          B, Greek_beta, VoidSymbol ] };
+    key <AB06>	{ [         n,          N, Greek_nu, U2207  ]	}; // ∇
+    key <AB07>	{ [         m,          M,           Greek_mu,    mu ]	};
+    key <AB08>	{ [   comma,  semicolon,          braceleft,     bracketright ]	}; 
+    key <AB09>	{[     period,      colon,            braceright,       bracketright ]}; 
+    key <AB10>	{ [   minus, underscore, periodcentered,     multiply ]	}; // · ×
+    // FÜNFTE ZEILE SIND NUR MODIFIER UND LEERZEICHEN
+
+    include "kpdl(comma)" // Komma auf Numpad
+
+    include "level3(ralt_switch)" // AltGr wechelt zur dritten Spalte
+
+
+    // EXTRA KEYS (editing / modifier keys SECTION INSTEAD OF alphanumeric)
+    // key <HELP> {	[	Help		]	};
+    // key <UNDO> {	[	Undo		]	};
+    // key <INS>  {	[	Insert		]	};
+    // key <HOME> {	[	Home,	Clear	]	};
+    // key <UP>   {	[	Up, NoSymbol, uparrow, NoSymbol	]	};
+    // key <LEFT> {	[	Left, NoSymbol, leftarrow, U21D0 ]	}; // \wenn 
+    // key <DOWN> {	[	Down, NoSymbol, downarrow, U21D4		]	}; // \gdw
+    // key <RGHT> {	[	Right, NoSymbol, rightarrow, U21D2	]	}; // \dann
+};
+
+// MY OWN
+alphanumeric_keys modifier_keys
+xkb_symbols "JHDeutsch" {
+    // none, shift, altgr, altgr+shift
+    name[Group1]="JHDeutschDefault";
+    // ERSTE ZEILE (F-Tasten nicht mitgezählt) 
+    key <TLDE>	{[    asciicircum , degree,             dead_circumflex,          U2033 ]}; //  ^ 
+    key <AE01>	{ [         1,     exclam,  onesuperior,   1 ]	};
+    key <AE02>	{[          2,   doublequote,      twosuperior,      2 ]};
+    key <AE03>	{[          dollar,    rightdoublequotemark, 3,    3 ]};
+    key <AE04>	{[          dollar,     dollar,       4 ,       4 ]};
+    key <AE05>	{ [         5,    percent,      VoidSymbol, 5 ]	};
+    key <AE06>	{ [         ampersand,  ampersand,      6,  6 ]	};
+    key <AE07>	{ [         slash,  slash,    braceleft, 7 ]	};
+        // should be \qty[] 
+    key <AE08>	{ [         parenleft,  parenleft,  bracketleft,    8 ]	}; 
+    key <AE09>	{ [         parenright, parenright, bracketright,   9 ]	}; 
+    key <AE10>	{ [         0,      equal,   braceright,       0 ]	};
+    key <AE11>	{[     ssharp,   question,        backslash,   U1E9E,    U1E9E ], type[group1]="FOUR_LEVEL_PLUS_LOCK" }; // ẞ
+    key <AE12>	{[ backslash, grave,     dead_acute,    dead_grave ]};
+
+    // ZWEITE ZEILE (Erste für Buchstaben)
+    key <AD01>	{ [         q,          Q,           at,  U211A ]	}; // ℚ
+    key <AD02>	{ [         w,          W,       dead_greek ,      UFFEE ]	}; // JUST FOR XCOMPOSE  // ￮  
+    key <AD03>	{ [         e,          E,     Greek_epsilon,         EuroSign ]	};
+    key <AD04>	{ [         r,          R,    Greek_rho,   U211D ]	}; // ℝ
+    key <AD05>	{ [         t,          T,       Greek_tau,       Greek_TAU ]	};
+    key <AD06>	{[          z,          Z,        leftarrow,    rightarrow ]};
+    key <AD07>	{ [         u,          U,    rightarrow,      uparrow ]	};
+    key <AD08>	{ [         i,          I,   Greek_iota,     idotless ]	};
+    key <AD09>	{ [         o,          O,       oslash,     Ooblique ]	};
+    key <AD10>	{ [         p,          P,        Greek_pi,        Greek_PI ]	};
+    key <AD11>	{[ udiaeresis, Udiaeresis,   U221E, U221B ]}; // ∞, ∝
+    key <AD12>	{[       plus,   asterisk,       asciitilde,         plusminus ]};
+
+    // DRITTE ZEILE
+    key <AC01>	{ [         a,          A,           Greek_alpha,           AE ]	};
+    key <AC02>	{[          s,          S,            Greek_sigma,          Greek_SIGMA ]}; // should be \sum
+    key <AC03>	{ [         d,          D,          Greek_delta,  Greek_DELTA ]	};
+    key <AC04>	{ [         f,          F,      Greek_phi,  Greek_PHI ]	};
+    key <AC05>	{ [         g,          G,          Greek_gamma,          Greek_GAMMA ]	};
+    key <AC06>	{ [         h,          H,      U210F,      U210D ]	}; //should be \hquer // hstroke, Hstroke exists also // ℏ ℍ
+    key <AC07>	{[          j,          J,    Greek_xi,  Greek_XI ]};
+    key <AC08>	{ [         k,          K,          Greek_kappa,    U1D542 ]	}; // 𝕂
+    key <AC09>	{ [         l,          L,      Greek_lambda,      Greek_LAMBDA ]	};
+    key <AC10>	{[ odiaeresis, Odiaeresis, UFFED,  dead_belowdot ]}; // ￭
+    key <AC11>	{[ adiaeresis, Adiaeresis,  dead_circumflex,     dead_caron ]};
+    key <BKSL>	{[ numbersign, apostrophe, rightsinglequotemark, dead_breve ]}; // #''˘ // should have \frac
+
+
+    // VIERTE ZEILE
+    key <LSGT>	{[      less,     greater,            bar, dead_belowmacron ]}; // win+ should be \Qty<
+    key <AB01>	{[          y,          Y,   guillemotright,          U203A ]}; // » ›
+    key <AB02>	{[          x,          X,    guillemotleft,          U2039 ]}; // « ‹
+    key <AB03>	{ [         c,          C,         Greek_psi,    Greek_PSI ]	};
+    key <AB04>	{ [         v,          V,   Greek_omega, Greek_OMEGA ]	};
+    key <AB05>	{ [         b,          B, Greek_beta, VoidSymbol ] };
+    key <AB06>	{ [         n,          N, Greek_nu, U2207  ]	}; // ∇
+    key <AB07>	{ [         m,          M,           Greek_mu,    mu ]	};
+    key <AB08>	{ [   comma,  semicolon,          braceleft,     bracketright ]	}; 
+    key <AB09>	{[     period,      colon,            braceright,       bracketright ]}; 
+    key <AB10>	{ [   minus, underscore, periodcentered,     multiply ]	}; // · ×
+    // FÜNFTE ZEILE SIND NUR MODIFIER UND LEERZEICHEN
+
+    include "kpdl(comma)" // Komma auf Numpad
+
+    include "level3(ralt_switch)" // AltGr wechelt zur dritten Spalte
+
+
+    // EXTRA KEYS (editing / modifier keys SECTION INSTEAD OF alphanumeric)
+    // key <HELP> {	[	Help		]	};
+    // key <UNDO> {	[	Undo		]	};
+    // key <INS>  {	[	Insert		]	};
+    // key <HOME> {	[	Home,	Clear	]	};
+    // key <UP>   {	[	Up, NoSymbol, uparrow, NoSymbol	]	};
+    // key <LEFT> {	[	Left, NoSymbol, leftarrow, U21D0 ]	}; // \wenn 
+    // key <DOWN> {	[	Down, NoSymbol, downarrow, U21D4		]	}; // \gdw
+    // key <RGHT> {	[	Right, NoSymbol, rightarrow, U21D2	]	}; // \dann
+};

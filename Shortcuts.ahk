@@ -401,7 +401,7 @@ return
 #If WinActive("Microsoft Visual Studio") or WinActive("ahk_exe pycharm64.exe")
 	XButton1::!Left
 	XButton2::!Right
-#IfWinActive
+#If
 
 #F8::
     Reload

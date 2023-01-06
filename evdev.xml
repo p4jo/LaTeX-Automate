@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE xkbConfigRegistry SYSTEM "xkb.dtd">
+<xkbConfigRegistry version="1.1">
+  <layoutList>
+    <layout>
+      <configItem>
+        <name>JHKeyboard</name>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>JHGerman</name>
+            <shortDescription>JHG</shortDescription>
+            <description>JHKeyboard(German)</description>
+          </configItem>
+        </variant>
+    </layout>
+  </layoutList>
+  </xkbConfigRegistry>

@@ -123,7 +123,8 @@ function MakeNewRootFile($name, $contentFilePath) {
     Write-Host "Will write a new main file for $name. The old one will be backed up." -ForegroundColor Yellow
 
     $mainFileExists = (Test-Path $pathMainFile)
-    $backupFileExists = (Test-Path $pathMainFile.bak)
+    $pathMainBackupFile = -join($pathMainFile,  ".bak")
+    $backupFileExists = (Test-Path $pathMainBackupFile)
     if($mainFileExists -and $backupFileExists){
         Remove-Item $pathMainFile.bak
     }
@@ -171,7 +172,7 @@ else{
 }
 
 Write-Host "Base directory = ""$BaseDirectory"", Author for new main files: ""$author""."
-
+$BaseDirectory = '~/repos/LaTeX-privat'
 if ($project.EndsWith(".tex") -or (Test-Path "$project.tex")){
     $project = $project.TrimEnd(".tex")
     $projectBasePath = (Split-Path $project)
@@ -248,7 +249,7 @@ Get-ChildItem -Directory -Exclude .*, _* | ForEach-Object {
             -not (Test-Path $pathMainFile) -and
             (getIncludedTexFiles $_ ).Length -gt 0
         )) {
-        MakeNewRootFile -name $name -contentFilePath $relativePathGeneratedFile
+        # MakeNewRootFile -name $name -contentFilePath $relativePathGeneratedFile
     }
 }
 
