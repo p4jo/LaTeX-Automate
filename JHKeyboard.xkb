@@ -5,34 +5,34 @@ xkb_symbols "JHGerman" {
     // none, shift, altgr, altgr+shift
     name[Group1]="JHGermanDefault";
     // ERSTE ZEILE (F-Tasten nicht mitgezählt) 
-    key <TLDE>	{[    asciicircum , degree,             dead_circumflex,          U2033 ]}; //  ^ 
-    key <AE01>	{ [         1,     exclam,  onesuperior,   1 ]	};
-    key <AE02>	{[          2,   doublequote,      twosuperior,      2 ]};
-    key <AE03>	{[          dollar,    rightdoublequotemark, 3,    3 ]};
-    key <AE04>	{[          dollar,     dollar,       4 ,       4 ]};
-    key <AE05>	{ [         5,    percent,      VoidSymbol, 5 ]	};
-    key <AE06>	{ [         ampersand,  ampersand,      6,  6 ]	};
-    key <AE07>	{ [         slash,  slash,    braceleft, 7 ]	};
-        // should be \qty[] 
-    key <AE08>	{ [         parenleft,  parenleft,  bracketleft,    8 ]	}; 
-    key <AE09>	{ [         parenright, parenright, bracketright,   9 ]	}; 
-    key <AE10>	{ [         0,      equal,   braceright,       0 ]	};
-    key <AE11>	{[     ssharp,   question,        backslash,   U1E9E,    U1E9E ], type[group1]="FOUR_LEVEL_PLUS_LOCK" }; // ẞ
-    key <AE12>	{[ backslash, grave,     dead_acute,    dead_grave ]};
+    key <TLDE>	{[    asciicircum , degree,             dead_circumflex,          U2033 ]}; //  ^ ″ (leftdoublequotemark); rightdoublequotemark fehlt
+    key <AE01>	{ [         1,     exclam,  onesuperior,   1 ]	}; // 1 ! ¹ 1
+    key <AE02>	{[          2,   U0022,      twosuperior,      2 ]}; // 2 " ² 2
+    key <AE03>	{[          dollar,    dollar, 3,    3 ]}; // $ $ 3 3
+    key <AE04>	{[          dollar,     dollar,       4 ,       4 ]}; // $ $ 4 4
+    key <AE05>	{ [         5,    percent,      VoidSymbol, 5 ]	}; // 5 % {nichts} 5
+    key <AE06>	{ [         ampersand,  ampersand,      6,  6 ]	}; // & & 6 6
+    key <AE07>	{ [         slash,  slash,    braceleft, 7 ]	}; // / / { 7
+    key <AE08>	{ [         parenleft,  parenleft,  bracketleft,    8 ]	}; // ( ({should be \qty(} 8
+    key <AE09>	{ [         parenright, parenright, bracketright,   9 ]	}; // ) ) ] 9
+    key <AE10>	{ [         0,      equal,   braceright,       0 ]	}; // 0 = } 0
+    key <AE11>	{[     ssharp,   question,        backslash,   U1E9E ]}; // ß ? \ ẞ 
+    // U1E9E ], type[group1]="FOUR_LEVEL_PLUS_LOCK" für übliche extreme Tastenkombi für ẞ {scheint nicht zu funktionieren}
+    key <AE12>	{[ backslash, grave,     dead_acute,    dead_grave ]}; // \ ` ´{éáóíj́'´} `{èàòì`j``}
 
     // ZWEITE ZEILE (Erste für Buchstaben)
-    key <AD01>	{ [         q,          Q,           at,  U211A ]	}; // ℚ
-    key <AD02>	{ [         w,          W,       dead_greek ,      UFFEE ]	}; // JUST FOR XCOMPOSE  // ￮  
-    key <AD03>	{ [         e,          E,     Greek_epsilon,         EuroSign ]	};
-    key <AD04>	{ [         r,          R,    Greek_rho,   U211D ]	}; // ℝ
-    key <AD05>	{ [         t,          T,       Greek_tau,       Greek_TAU ]	};
-    key <AD06>	{[          z,          Z,        leftarrow,    rightarrow ]};
-    key <AD07>	{ [         u,          U,    rightarrow,      uparrow ]	};
-    key <AD08>	{ [         i,          I,   Greek_iota,     idotless ]	};
-    key <AD09>	{ [         o,          O,       oslash,     Ooblique ]	};
-    key <AD10>	{ [         p,          P,        Greek_pi,        Greek_PI ]	};
-    key <AD11>	{[ udiaeresis, Udiaeresis,   U221E, U221B ]}; // ∞, ∝
-    key <AD12>	{[       plus,   asterisk,       asciitilde,         plusminus ]};
+    key <AD01>	{ [         q,          Q,           at,  U211A ]	}; // q Q @ ℚ
+    key <AD02>	{ [         w,          W,       dead_greek ,      UFFEE ]	}; // w W µ{εαοιθµµ} ￮  
+    key <AD03>	{ [         e,          E,     Greek_epsilon,         EuroSign ]	}; // e E ε €
+    key <AD04>	{ [         r,          R,    Greek_rho,   U211D ]	}; // r R ρ ℝ
+    key <AD05>	{ [         t,          T,       Greek_tau,       Greek_TAU ]	}; // t T τ Τ
+    key <AD06>	{[          z,          Z,        leftarrow,    rightarrow ]}; // z Z ← →
+    key <AD07>	{ [         u,          U,    rightarrow,      uparrow ]	}; // u U → ↑
+    key <AD08>	{ [         i,          I,   Greek_iota,     idotless ]	}; // i I ι ı
+    key <AD09>	{ [         o,          O,       oslash,     Ooblique ]	}; // o O ø Ø
+    key <AD10>	{ [         p,          P,        Greek_pi,        Greek_PI ]	}; // p P π Π 
+    key <AD11>	{[ udiaeresis, Udiaeresis,   U221E, U221D ]}; // ü Ü ∞∝    {∛ is U221B}
+    key <AD12>	{[       plus,   asterisk,       asciitilde,         plusminus ]}; // + * ~ ±
 
     // DRITTE ZEILE
     key <AC01>	{ [         a,          A,           Greek_alpha,           AE ]	};
