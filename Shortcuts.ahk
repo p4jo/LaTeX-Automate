@@ -79,6 +79,9 @@ return
 ^!v::
 	Send ω
 return
+^!c::
+	Send ψ
+return
 
 ^!d::
 	; Send Δ ; Das ist der Buchstabe Δ auf der griechischen Tastatur
@@ -312,11 +315,12 @@ return
 	; return
 
 	#<::
-		Send % "\left\langle "
+		; Send % "\left\langle "
+		Send % "\Qty<>{Left}"
 	return
-	#+<::
-		Send % "\right\rangle "
-	return
+	; #+<::
+	; 	Send % "\right\rangle "
+	; return
 
 	^!g::
 		Send \Gleichung
@@ -425,132 +429,134 @@ Browser_Favorites::
 	Send {LWin down}.{LWin Up} 
 return
 
-; Standby shortcuts
-#W::
-	Sleep(False)
-return
+; OLD WIN 10 SHORTCUTS
 
-#+W::
-	Sleep(True)
-return
+; ; Standby shortcuts
+; #W::
+; 	Sleep(False)
+; return
 
-Sleep(Hibernate){
-	SetKeyDelay 40, 20
-	KeyWait LWin
-	SendEvent {LWin}
-	Sleep 500
-	SendEvent {Tab}{Down 6}{Space}
-	Sleep 100
-	if (Hibernate){
-		SendEvent {Down}
-	}
-	SendEvent {Space}
-	SetKeyDelay
-}
+; #+W::
+; 	Sleep(True)
+; return
 
-#Y::
-	SetSoundOutput(False)
-return
+; Sleep(Hibernate){
+; 	SetKeyDelay 40, 20
+; 	KeyWait LWin
+; 	SendEvent {LWin}
+; 	Sleep 500
+; 	SendEvent {Tab}{Down 6}{Space}
+; 	Sleep 100
+; 	if (Hibernate){
+; 		SendEvent {Down}
+; 	}
+; 	SendEvent {Space}
+; 	SetKeyDelay
+; }
 
-#X::
-	SetSoundOutput(True)
-return
+; #Y::
+; 	SetSoundOutput(False)
+; return
 
-SetSoundOutput(Upmost){
-	SetKeyDelay 120, 20
-	KeyWait LWin
-	SendEvent {LWin Down}b{LWin Up}
-	Sleep 200
-	SendEvent {Down}{Space}
-	WinWaitActive, Lautstärkeregelung,, 0.5
-	if (ErrorLevel == 1){
-		return
-	}
-	SendEvent {Tab}{Space}
-	Sleep 300
+; #X::
+; 	SetSoundOutput(True)
+; return
+
+; SetSoundOutput(Upmost){
+; 	SetKeyDelay 120, 20
+; 	KeyWait LWin
+; 	SendEvent {LWin Down}b{LWin Up}
+; 	Sleep 200
+; 	SendEvent {Down}{Space}
+; 	WinWaitActive, Lautstärkeregelung,, 0.5
+; 	if (ErrorLevel == 1){
+; 		return
+; 	}
+; 	SendEvent {Tab}{Space}
+; 	Sleep 300
 	
-	if (Upmost){
-		SendEvent {Up 3}{Space}
-	}
-	else{
-		SendEvent {Down 3}{Space}
-	}
-	Sleep 400
-	SendEvent {Escape}
-}
-; Fenster im Vordergrund halten
-#^::
-	WinSet, AlwaysOnTop, Toggle, A
-return
-; Setze Strg+1 bzw. 2 als Shortcut für Eingabesprachen
-#F7::
-	SendMode, Event
-	KeyWait, RWin
-	KeyWait, LWin
-	KeyWait, F7
-	Send, #i
-	WinWaitActive, Einstellung
-		Sleep, 100
+; 	if (Upmost){
+; 		SendEvent {Up 3}{Space}
+; 	}
+; 	else{
+; 		SendEvent {Down 3}{Space}
+; 	}
+; 	Sleep 400
+; 	SendEvent {Escape}
+; }
+; ; Fenster im Vordergrund halten
+; #^::
+; 	WinSet, AlwaysOnTop, Toggle, A
+; return
+; ; Setze Strg+1 bzw. 2 als Shortcut für Eingabesprachen
+; #F7::
+; 	SendMode, Event
+; 	KeyWait, RWin
+; 	KeyWait, LWin
+; 	KeyWait, F7
+; 	Send, #i
+; 	WinWaitActive, Einstellung
+; 		Sleep, 100
 
-		Send {Alt Down}{F4}{Alt Up} ; Um danach die Einstellungen auf der Hauptseite zu starten
-	Sleep, 100
-	Send, #i
-	WinWaitActive, Einstellung
-		Sleep, 1500
+; 		Send {Alt Down}{F4}{Alt Up} ; Um danach die Einstellungen auf der Hauptseite zu starten
+; 	Sleep, 100
+; 	Send, #i
+; 	WinWaitActive, Einstellung
+; 		Sleep, 1500
 
-		Send, erweiterte{Space}tast{Enter}
+; 		Send, erweiterte{Space}tast{Enter}
 
-		Sleep, 500
+; 		Sleep, 500
 
-		Send {Enter} ; Erweiterte Tastatureinstellungen
-		Sleep 200
+; 		Send {Enter} ; Erweiterte Tastatureinstellungen
+; 		Sleep 200
 
-		Send, {Tab}
-		Sleep 100
-		Send, {Tab}
-		Sleep 100
-		Send, {Tab}
-		Sleep, 100 		
-		Send, {Enter} ; Tastenkombination für Eingabesprachen
+; 		Send, {Tab}
+; 		Sleep 100
+; 		Send, {Tab}
+; 		Sleep 100
+; 		Send, {Tab}
+; 		Sleep, 100 		
+; 		Send, {Enter} ; Tastenkombination für Eingabesprachen
 
-		WinWaitActive, Textdienste
-		Sleep, 150
+; 		WinWaitActive, Textdienste
+; 		Sleep, 150
 
-			Send, {Tab}
-			Sleep, 100
+; 			Send, {Tab}
+; 			Sleep, 100
 
-			Send, {Down}
-			Sleep, 100
+; 			Send, {Down}
+; 			Sleep, 100
 
-			Send, {Alt Down}n{Alt Up} ; Tastenkombination für Deutsche Tastatur eingeben
-			Sleep, 200
+; 			Send, {Alt Down}n{Alt Up} ; Tastenkombination für Deutsche Tastatur eingeben
+; 			Sleep, 200
 
-				Send, {Space}{Tab}{Tab}{Down 8} ; Anschalten und Tab + 8
-				Sleep, 100
+; 				Send, {Space}{Tab}{Tab}{Down 8} ; Anschalten und Tab + 8
+; 				Sleep, 100
 
-				Send {Enter} ; Fertig
-				Sleep, 200
+; 				Send {Enter} ; Fertig
+; 				Sleep, 200
 
-			Send {Down}{Down}
-			Sleep, 100
+; 			Send {Down}{Down}
+; 			Sleep, 100
 
-			Send {Alt Down}n{Alt Up} ; Tastenkombination für griechische Tastatur eingeben
-			Sleep, 200
+; 			Send {Alt Down}n{Alt Up} ; Tastenkombination für griechische Tastatur eingeben
+; 			Sleep, 200
 
-				Send {Space}{Tab}{Tab}{Down 8}  ; Anschalten und Tab + 9
-				Sleep, 200
+; 				Send {Space}{Tab}{Tab}{Down 8}  ; Anschalten und Tab + 9
+; 				Sleep, 200
 
-				Send {Enter} ;fertig
-				Sleep, 117
+; 				Send {Enter} ;fertig
+; 				Sleep, 117
 
-			Send {Alt Down}b{Alt Up} ; Übernehmen
+; 			Send {Alt Down}b{Alt Up} ; Übernehmen
 
-			WinWaitActive, Textdienste
-			Send {Alt Down}{F4}{Alt Up} ; Pop-up-Fenster schließen
+; 			WinWaitActive, Textdienste
+; 			Send {Alt Down}{F4}{Alt Up} ; Pop-up-Fenster schließen
 
-		WinWaitActive, Einstellung
-		Send {Alt Down}{F4}{Alt Up}
+; 		WinWaitActive, Einstellung
+; 		Send {Alt Down}{F4}{Alt Up}
 
-	SendMode Input
-return
+; 	SendMode Input
+; return
 
