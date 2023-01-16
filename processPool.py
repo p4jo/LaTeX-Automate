@@ -46,15 +46,17 @@ TOO_MANY_NONSTOP_RUNS_COOLDOWN = 180
 
 OLD_TEMP_DIR_TIMEOUT_MIN = 15
 BASE_POWERSHELL_COMMAND = """
+Set-Item 'Env:\LATEX_ALLOW_PAUSE_EXECUTION' -Value 'true';
 mkdir "{tempOutputDirectory}";
-cp "{outputDirectory}/{fileName}*" "{tempOutputDirectory}";
-$Env:LATEX_ALLOW_PAUSE_EXECUTION="true";
+Copy-Item "{outputDirectory}/{fileName}*" "{tempOutputDirectory}";
 xindex -k "{tempOutputDirectory}/{fileName}";
 biber "{tempOutputDirectory}/{fileName}";
 lualatex --recorder --file-line-error --interaction=nonstopmode --synctex=1 --output-directory="{tempOutputDirectory}" "{fileName}";
-cp "{tempOutputDirectory}/{fileName}*" "{outputDirectory}";
+Copy-Item "{tempOutputDirectory}/{fileName}*" "{outputDirectory}" -Force;
 rm -r "{tempOutputDirectory}"
 """ #  --max-print-line=300 doesn't work with miktex and lualatex. Add max-print-line=300 to  initexmf --edit-config-file lualatex
+# $Env:LATEX_ALLOW_PAUSE_EXECUTION="true"; # Somehow doesn't work inside pwsh -c " ... " (at least on linux)
+# Copy-Item (copy) is from powershell, has star syntax which cp from linux seemingly doesn't have. cp on Windows is an alias for Copy-Item.
 
 THIS_FILE_VERSION_TIME = Path(__file__).stat().st_mtime + 1
 #endregion
@@ -363,7 +365,7 @@ def newWatcher(texFile: PathOrString, output_dir: PathOrString):
         clearOldTempDirectories(tempOutputDirectory.parent)
 
         return await LatexRunner.newRunner(
-            command = getCMDCommand(tempOutputDirectory, outputDirectory,  texFile),
+            command = getCMDorBashCommand(tempOutputDirectory, outputDirectory,  texFile),
             workingDirectory=texFile.parent,
             info=f"outputDirectory={outputDirectory}, tempOutputDirectory={tempOutputDirectory}",
             timeoutFunction=lambda runnerCreationTime: Path(texFile).stat().st_mtime > runnerCreationTime
@@ -411,12 +413,12 @@ def getPowershellCommand(
         .replace('{fileName}',  texFile.stem) \
         .replace('\n',' ') 
 
-def getCMDCommand(
+def getCMDorBashCommand(
         tempOutputDirectory: Optional[PathOrString],
         outputDirectory: PathOrString,
         texFile: PathOrString
     ):
-    # it is run in cmd, so we need the powershell -c "{...}"
+    # it is run in cmd or bash, so we need the pwsh -c "{...}" (powershell -c only on windows)
     return 'pwsh -c "' + getPowershellCommand(tempOutputDirectory, outputDirectory, texFile).replace('"', '\\"')  + '"'
 
 
