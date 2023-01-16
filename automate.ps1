@@ -172,7 +172,6 @@ else{
 }
 
 Write-Host "Base directory = ""$BaseDirectory"", Author for new main files: ""$author""."
-$BaseDirectory = '~/repos/LaTeX-privat'
 if ($project.EndsWith(".tex") -or (Test-Path "$project.tex")){
     $project = $project.TrimEnd(".tex")
     $projectBasePath = (Split-Path $project)
@@ -249,7 +248,7 @@ Get-ChildItem -Directory -Exclude .*, _* | ForEach-Object {
             -not (Test-Path $pathMainFile) -and
             (getIncludedTexFiles $_ ).Length -gt 0
         )) {
-        # MakeNewRootFile -name $name -contentFilePath $relativePathGeneratedFile
+        MakeNewRootFile -name $name -contentFilePath $relativePathGeneratedFile
     }
 }
 
