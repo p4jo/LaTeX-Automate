@@ -35,7 +35,7 @@ function getIncludedTexFiles{
         [switch] $log = $false
     )
     $name = (Split-Path $path -Leaf)
-    $allProjectFiles = (Get-ChildItem -Path $path -Filter *.tex -Exclude *_generated.tex, *$name.tex, _*, *_ -Recurse)
+    $allProjectFiles = (Get-ChildItem -File -Path $path -Filter *.tex -Exclude *_generated.tex, *$name.tex, _*, *_ -Recurse)
     $includedProjectFiles = $allProjectFiles | Where-Object {-not (Test-Path (-join($_.Directory.FullName, "\.texignore")))} 
     
     if($log) {

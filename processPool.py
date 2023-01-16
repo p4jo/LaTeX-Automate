@@ -378,11 +378,17 @@ def clearOldTempDirectories(directory: Path):
             now = datetime.now()
             currentMod = now.hour * 60 + now.minute
             mod = int(dir.name[:2]) * 60 + int(dir.name[3:5])
-            if currentMod > OLD_TEMP_DIR_TIMEOUT_MIN and (mod > currentMod or mod < currentMod - OLD_TEMP_DIR_TIMEOUT_MIN):
+            if (
+                mod > currentMod 
+                and
+                mod - 24 * 60 < currentMod - OLD_TEMP_DIR_TIMEOUT_MIN      
+            ) or (
+                mod < currentMod - OLD_TEMP_DIR_TIMEOUT_MIN
+            ):
                 try:
                     shutil.rmtree(dir)
-                except:
-                    pass
+                except Exception as e:
+                    (dir / 'del_error.log').write_text(str(e))
 
 tempFolderRegex = re.compile("^[0-9][0-9]-[0-9][0-9]-[0-9][0-9]")
 def getTempOutputDirectory(outputDirectory: Path):
