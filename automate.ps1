@@ -1,31 +1,73 @@
-﻿param(
+﻿<# 
+.SYNOPSIS 
+    Automatically include all LaTeX Files in your project folder in alphabetical order (recursively and excluding files starting with _ or with the same name as the folder (case-insensitive) or ending in _generated.tex)
+
+    It will also create new main files for project folders if you don't already have a matching one
+.DESCRIPTION
+
+ OLD MAIN FILE STYLE
+    - project.tex
+    - project
+       · project_generated.tex
+       · stuff.tex
+    - project.pdf
+    - project.log and all the other generated files
+
+    NEW MAIN FILE SYSTEM
+    - project
+       · project.tex
+       · project_generated.tex
+       · stuff.tex
+       · out  
+          - project.pdf
+          - project.log and all the other generated files
+
+.EXAMPLE
+In VSCode with LaTeX Workshop in settings.json:
+    "latex-workshop.latex.tools": [
+        {
+            "name": "texrefautomate",
+            "command": "pwsh",
+            "args": [
+                "-c",
+                "%WORKSPACE_FOLDER%/Automate/automate.ps1 -all -s -b '%WORKSPACE_FOLDER%' -p '%DOC%'" 
+            ]
+        }, ... ]
+#>
+param(
+    # The Directory in which you have all of your project folders
     [Alias("b", "r", "root")]
     [string] $BaseDirectory = "",
 
+    # The one project to be run on
     [Alias( "f", "folder", "only", "p")]
     [string] $project = "",
 
+    # In doubt, run on all projects
     [Alias("all")]
-    [switch] $AllIfFolderDoesntExist = $false, # Im Zweifel alle
+    [switch] $AllIfFolderDoesntExist = $false,
 
+    # Create a new main file for this project (old one will be backed up). 
     [Alias("o", "overwrite", "renew")]
-    [switch] $RenewMainFile = $false,
+    [switch] $RenewMainFile = $false, 
 
+    # The author for this file. It will also look in $LaTeX_Author (which you can set in the file $project that gets run at the start of any powershell session)
     [Alias("a")]
-    [string] $author = "Johannes Heißler",
+    [string] $author = "",
     
+    # Create a copy of the <project>.log file before it gets overwritten. Saved to <project>/.log
     [Alias("l", "log", "backupLog", "s")]
     [switch] $saveLog = $false,
 
+    # Show this help. Also available with Get-Help <the path of this script>
     [Alias("h", "help")]
     [switch] $getHelp = $false
 )
 
 Write-Host "This is JHAutomate." -ForegroundColor Green
-
 if ($getHelp) {
     Write-Host "This script auto generates a file with an \input statement for every .tex file in the folder specified with -p"
-    Get-Help .\automate.ps1
+    Get-Help -Detailed  $PSCommandPath
     exit
 }
 
@@ -123,7 +165,8 @@ function MakeNewRootFile($name, $contentFilePath) {
     Write-Host "Will write a new main file for $name. The old one will be backed up." -ForegroundColor Yellow
 
     $mainFileExists = (Test-Path $pathMainFile)
-    $backupFileExists = (Test-Path $pathMainFile.bak)
+    $pathMainBackupFile = -join($pathMainFile,  ".bak")
+    $backupFileExists = (Test-Path $pathMainBackupFile)
     if($mainFileExists -and $backupFileExists){
         Remove-Item $pathMainFile.bak
     }
@@ -158,7 +201,6 @@ function MakeNewRootFile($name, $contentFilePath) {
 \input{$contentFilePath}
 
 \end{document}" | Out-File -FilePath $pathMainFile -Encoding utf8 
-           
 }
 
 # FIX INPUTS AND PATHS
@@ -170,8 +212,12 @@ else{
     $BaseDirectory = Get-Location
 }
 
-Write-Host "Base directory = ""$BaseDirectory"", Author for new main files: ""$author""."
+$a = (Get-Variable 'LaTeX_Author' -ErrorAction 'Ignore'); 
+if ($a) { 
+    $author = $a
+}
 
+Write-Host "Base directory = ""$BaseDirectory"", Author for new main files: ""$author""."
 if ($project.EndsWith(".tex") -or (Test-Path "$project.tex")){
     $project = $project.TrimEnd(".tex")
     $projectBasePath = (Split-Path $project)
