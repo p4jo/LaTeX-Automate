@@ -378,7 +378,7 @@ return
 	return
 
 	^!ö::
-		Send ￭
+		Send ▞
 	return
 
 #IfWinActive
