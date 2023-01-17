@@ -1,5 +1,5 @@
 param(
-    [Alias( "f", "folder", "only", "p")]
+    [Alias( "f", "only", "p")]
     [string] $folder = ""
 )
 
