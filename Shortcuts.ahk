@@ -164,6 +164,7 @@ return
 
 	::==>::
 		Send % "⟹ "
+	return
 	::=>::
 		Send % "⇒ "
 	return
