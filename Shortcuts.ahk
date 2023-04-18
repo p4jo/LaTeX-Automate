@@ -25,6 +25,9 @@ GroupAdd, LaTeX, LaTeX,,, .ahk ; LaTeX im Titel, aber nicht .ahk
 	Suspend, Off
 return
 
+Pause::
+	Send {Media_Play_Pause}
+return
 
 ; Extrazeichen auf AltGr und Hotstrings
 
