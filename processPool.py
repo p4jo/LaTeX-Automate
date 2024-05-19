@@ -46,7 +46,7 @@ TOO_MANY_NONSTOP_RUNS_COOLDOWN = 180
 
 OLD_TEMP_DIR_TIMEOUT_MIN = 15
 BASE_POWERSHELL_COMMAND = """
-Set-Item 'Env:\LATEX_ALLOW_PAUSE_EXECUTION' -Value 'true';
+Set-Item 'Env:\\LATEX_ALLOW_PAUSE_EXECUTION' -Value 'true';
 mkdir "{tempOutputDirectory}";
 Copy-Item "{outputDirectory}/{fileName}*" "{tempOutputDirectory}";
 xindex -k "{tempOutputDirectory}/{fileName}";
@@ -274,7 +274,7 @@ class LatexRunner(Runner):
             print(f"A runner has finished with returncode {self.process.returncode}! PID: {self.process.pid}. {self.info}")
             if self._state == RunnerStates.PREPARING:
                 self.errorState = ErrorStates.NEVER_WAITED
-                print("BUT IT NEVER WAITED! IF THIS HAPPENS TO OFTEN I'LL ABORT. PUT \pauseExecution SOMEWHERE IN YOUR DOCUMENT.")
+                print("BUT IT NEVER WAITED! IF THIS HAPPENS TO OFTEN I'LL ABORT. PUT \\pauseExecution SOMEWHERE IN YOUR DOCUMENT.")
             elif self.process.returncode != 0:
                 self.errorState == ErrorStates.RETURN_CODE_NONZERO
             self._state = RunnerStates.FINISHED
@@ -466,7 +466,7 @@ def runServer(port, texFile: PathOrString = '', output_dir: PathOrString = ''):
         try:
             raise KeyboardInterrupt("actually interrupted by call to stopServer")
         finally:
-            print("Closed by call to \stopServer---")
+            print("Closed by call to \\stopServer---")
 
     async def startup():
         if texFile != '':
