@@ -37,7 +37,9 @@ HALT_LOG = "PAUSED EXECUTION!"
 VERBOSE = False
 
 PROCESS_TIMEOUT = 15
-WAIT_FOR_COMPLETION_SLEEP_TIME = 0.5
+WAIT_FOR_COMPLETION_SLEEP_TIME = 0.8
+WAIT_WHILE_PREPARING_SLEEP_TIME = 0.4
+EMPTY_UPDATE_LOG_MAX_TRIES = 50 # program might be in a loop for WAIT_FOR_COMPLETION_TIMEOUT  * EMPTY_UPDATE_LOG_MAX_TRIES seconds
 WAIT_FOR_COMPLETION_TIMEOUT = 60
 STATE_WATCHER_SLEEP_TIME = 2
 
@@ -51,7 +53,7 @@ mkdir "{tempOutputDirectory}";
 Copy-Item "{outputDirectory}/{fileName}*" "{tempOutputDirectory}";
 xindex -k "{tempOutputDirectory}/{fileName}";
 biber "{tempOutputDirectory}/{fileName}";
-lualatex --recorder --file-line-error --interaction=nonstopmode --synctex=1 --output-directory="{tempOutputDirectory}" "{fileName}";
+luahblatex --recorder --file-line-error --interaction=nonstopmode --synctex=1 --output-directory="{tempOutputDirectory}" "{fileName}";
 Copy-Item "{tempOutputDirectory}/{fileName}*" "{outputDirectory}" -Force;
 rm -r "{tempOutputDirectory}"
 """ #  --max-print-line=300 doesn't work with miktex and lualatex. Add max-print-line=300 to  initexmf --edit-config-file lualatex
@@ -293,7 +295,7 @@ class LatexRunner(Runner):
             print("Will continue a runner that is still preparing")
             
         while state == RunnerStates.PREPARING:
-            await asyncio.sleep(0.4) 
+            await asyncio.sleep(WAIT_WHILE_PREPARING_SLEEP_TIME) 
             state = await self.getState() 
 
         if state == RunnerStates.WAITING:
@@ -321,6 +323,7 @@ class LatexRunner(Runner):
     async def updateLog(self, timeout: float = 0.05, log: bool = False) -> list:
         """ Loads the latest log messages from the process into self.lines and returns them. Don't call this during execution but call self.getState() because else the program might miss that it switched to the waiting state. """
         lines: List[str] = []
+        i = 0
         while self.process.returncode is None:
             try:
                 line = (
@@ -336,7 +339,14 @@ class LatexRunner(Runner):
                 # print("Buffered latex log output exceeded! PID:", process.pid)
                 break
             except RuntimeError:
-                continue
+                i += 1
+                if i < EMPTY_UPDATE_LOG_MAX_TRIES:
+                    await asyncio.sleep(WAIT_FOR_COMPLETION_SLEEP_TIME)
+                    continue
+                self.process.kill()
+                self.errorState = ErrorStates.ABORTED
+                print("ABORTED RUNNER WITH PID", self.process.pid, "because there were too many empty log reads.")
+                break
         else:
             lines = (await self.process.stdout.read()).decode('utf-8', errors='replace').splitlines()
         if len(lines) > 0:
