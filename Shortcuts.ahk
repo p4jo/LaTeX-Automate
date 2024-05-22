@@ -607,3 +607,14 @@ return
 ; 	SendMode Input
 ; return
 
+
+
+::p4::p4jo@outlook.de
+::@o::p4jo@outlook.de 
+::j1::johannes.h123456@gmail.com
+::@g::johannes.h123456@gmail.com
+::@tum::johannes.heissler@tum.de
+::@lmu::johannes.heissler@campus.lmu.de
+::@t-::johannes.heissler@t-online.de
+::@t::johannes.heissler@t-online.de
+::@d::johannes.heissler@dpsg-friedberg.de
