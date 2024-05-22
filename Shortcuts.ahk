@@ -10,12 +10,15 @@ GroupAdd, Programmieren, .ts
 GroupAdd, Programmieren, .js
 GroupAdd, Programmieren, .ps1
 GroupAdd, Programmieren, Unity
+GroupAdd, Programmieren, .lua
+GroupAdd, Programmieren, .jl
 
 GroupAdd, LaTeX, .tex
 GroupAdd, LaTeX, .cls
 GroupAdd, LaTeX, .sty
 GroupAdd, LaTeX, LaTeX,,, .ahk ; LaTeX im Titel, aber nicht .ahk
 
+numCapsLock = 0
 ; +^!F12::Suspend  ;  Press it again to resume.
 
 ; ~^!A::
@@ -23,10 +26,6 @@ GroupAdd, LaTeX, LaTeX,,, .ahk ; LaTeX im Titel, aber nicht .ahk
 	Suspend, On
 	Sleep 10000
 	Suspend, Off
-return
-
-Pause::
-	Send {Media_Play_Pause}
 return
 
 ; Extrazeichen auf AltGr und Hotstrings
@@ -107,7 +106,7 @@ return
 ^!,::
 	Send {{}
 return
- 
+
 ^!.::
 	Send {}}
 return 
@@ -124,17 +123,17 @@ return
 	Send % "\tilde "
 return
 
-$´::
-	Send \
-return
-`::
-	SendInput % Chr(0x60)
++´::
+	Send % Chr(0x60)
 	; SendEvent {Space}
 	; Sleep 2000
 	; SendEvent {Space}{BackSpace}
 return
-^!´::
-	SendEvent ´
+^!+´:: 
+	Send ´
+return
+#CapsLock::
+	numCapsLock := !numCapsLock
 return
 
 ^!w:: ; Verwende #F7 zuerst, s. u.
@@ -148,6 +147,10 @@ return
 return
 
 ; #If WinActive("ahk_group Programmieren") or WinActive("ahk_group LaTeX")
+#If numCapsLock
+	$´::
+		Send \
+	return
 	$7::
 		Send /
 	return
@@ -157,7 +160,7 @@ return
 	$9::
 		Send )
 	return
-; #If
+#If
 
 #IfWinNotActive ahk_group Programmieren
 
@@ -212,26 +215,6 @@ return
 		Send % "≙ "
 	return
 
-	::>m::
-		Send % "⊇ "
-	return
-	::<m::
-		Send % "⊆ "
-	return
-
-	::<e::
-		Send % "∈ "
-	return
-	::>e::
-		Send % "∋ "
-	return
-	::<i::
-		Send % "∊ "
-	return
-	::>i::
-		Send % "∍ "
-	return
-
 	::<<::
 		Send % "≪ "
 	return
@@ -257,8 +240,27 @@ return
 #IfWinNotActive
 
 
-#If WinActive("ahk_group LaTeX") and not WinActive("ahk_group Programmieren")
+::>m::
+	Send % "⊇ "
+return
+::<m::
+	Send % "⊆ "
+return
 
+::<e::
+	Send % "∈ "
+return
+::>e::
+	Send % "∋ "
+return
+::<i::
+	Send % "∊ "
+return
+::>i::
+	Send % "∍ "
+return
+
+#If WinActive("ahk_group LaTeX") or WinActive("ahk_group Programmieren")
 	^::
 		Send % "{^} " ; Sonst erwartet es ein Zeichen und z.B. ^u zu tippen ergibt û
 	return
@@ -266,7 +268,9 @@ return
 	; ^!^::
 	; 	Send ^
 	; return
-	
+#If
+#If WinActive("ahk_group LaTeX") and not WinActive("ahk_group Programmieren")
+
 	#b::
 		Send % "\numberset "
 	return
@@ -441,7 +445,7 @@ return
 	return
 #IfWinActive
 
-#If WinActive("Microsoft Visual Studio") or WinActive("ahk_exe pycharm64.exe")
+#If WinActive("Microsoft Visual Studio") or WinActive("ahk_exe pycharm64.exe") or WinActive("ahk_exe rider64.exe")
 	XButton1::!Left
 	XButton2::!Right
 #If
@@ -461,11 +465,15 @@ return
 	
 MButton:: MButton
 
- 
 
 ; EMOJIS
+ScrollLock::
 Browser_Favorites::
 	Send {LWin down}.{LWin Up} 
+return
+
+Pause::
+	Send {Media_Play_Pause}
 return
 
 ; OLD WIN 10 SHORTCUTS
