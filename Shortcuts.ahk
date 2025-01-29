@@ -12,6 +12,7 @@ GroupAdd, Programmieren, .ps1
 GroupAdd, Programmieren, Unity
 GroupAdd, Programmieren, .lua
 GroupAdd, Programmieren, .jl
+GroupAdd, Programmieren, .cs
 
 GroupAdd, LaTeX, .tex
 GroupAdd, LaTeX, .cls
