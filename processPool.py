@@ -324,6 +324,7 @@ class LatexRunner(Runner):
         """ Loads the latest log messages from the process into self.lines and returns them. Don't call this during execution but call self.getState() because else the program might miss that it switched to the waiting state. """
         lines: List[str] = []
         i = 0
+        emptyLines = 0
         while self.process.returncode is None:
             try:
                 line = (
@@ -332,6 +333,11 @@ class LatexRunner(Runner):
                         timeout = timeout
                     )
                 ).decode("utf-8", errors='replace').strip()
+                if line == "":
+                    emptyLines += 1
+                    if emptyLines == 100:
+                        print(f"Aborted updating the log after it read {emptyLines} empty lines.")
+                        break
                 if log:
                     print('\t\t', line)
                 lines.append(line)
