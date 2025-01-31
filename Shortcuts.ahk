@@ -135,6 +135,13 @@ return
 return
 #CapsLock::
 	numCapsLock := !numCapsLock
+	text := numCapsLock ? "Backslash und 7/, 8(, 9) an" : "Backslash und 7/, 8(, 9) aus" 
+	ToolTip %text%
+	SetTimer, CloseToolTip, 1000
+return
+	
+CloseToolTip:
+	ToolTip
 return
 
 ^!w:: ; Verwende #F7 zuerst, s. u.
