@@ -4,6 +4,7 @@ import itertools
 import os
 import random
 import re
+import signal
 import subprocess
 import sys
 import time
@@ -466,6 +467,8 @@ async def do_execute(texFile: str, output_dir: PathOrString = None):
 def runServer(port, texFile: PathOrString = '', output_dir: PathOrString = ''):
     """ Run the server. This never returns, but raises KeyboardInterrupt to kill itself on GET request to f"http://localhost:{port}/stopServer{ROUTE_OBFUSCATION}" """
     from aiohttp import web
+    from aiohttp.web_runner import GracefulExit 
+    app: web.Application = None
 
     async def handle(request):
         """ the request must come as text of the form 'texFile,outdir' """
@@ -480,11 +483,15 @@ def runServer(port, texFile: PathOrString = '', output_dir: PathOrString = ''):
 
     async def handleStopServer(request):
         try:
-            raise KeyboardInterrupt("actually interrupted by call to stopServer")
+            print("Got call to \\stopServer---, stopping.")
+            signal.raise_signal(signal.SIGTERM)
+            raise GracefulExit("actually interrupted by call to stopServer")
         finally:
             print("Closed by call to \\stopServer---")
+            exit()
 
     async def startup():
+        nonlocal app
         if texFile != '':
             asyncio.get_event_loop().create_task(
                 do_execute(texFile=texFile, output_dir=output_dir) # wrapped in this startup stuff because we only have async from web.run_app
