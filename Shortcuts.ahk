@@ -19,7 +19,10 @@ GroupAdd, LaTeX, .cls
 GroupAdd, LaTeX, .sty
 GroupAdd, LaTeX, LaTeX,,, .ahk ; LaTeX im Titel, aber nicht .ahk
 
-numCapsLock = 0
+GroupAdd, CookieClicker, Cookie Clicker
+
+numCapsLock := False
+clicking := False
 ; +^!F12::Suspend  ;  Press it again to resume.
 
 ; ~^!A::
@@ -300,7 +303,8 @@ return
 	return
 		
 	#::
-		Send \frac
+		; Send \frac
+		Send '
 	return
 	
 	+7::
@@ -484,6 +488,23 @@ Pause::
 	Send {Media_Play_Pause}
 return
 
+
+#IfWinActive ahk_group CookieClicker
+#C::
+	global clicking
+	clicking := !clicking
+	While, !GetKeyState("Esc", "P") {
+		Click 
+		Sleep 100
+	}
+return
+
+#IfWinActive
+
+#Esc::
+	global clicking := False
+return
+
 ; OLD WIN 10 SHORTCUTS
 
 ; ; Standby shortcuts
@@ -626,3 +647,4 @@ return
 ::@t-::johannes.heissler@t-online.de
 ::@t::johannes.heissler@t-online.de
 ::@d::johannes.heissler@dpsg-friedberg.de
+::01::015908105914
