@@ -355,7 +355,12 @@ class LatexRunner(Runner):
                 print("ABORTED RUNNER WITH PID", self.process.pid, "because there were too many empty log reads.")
                 break
         else:
-            lines = (await self.process.stdout.read()).decode('utf-8', errors='replace').splitlines()
+            try:
+                linesText = await self.process.stdout.read()
+                lines = linesText.decode('utf-8', errors='replace').splitlines()
+            except RuntimeError as e:
+                print("Tried to read the process output, but it was already closed. PID:", self.process.pid)
+                lines = b"ERROR: When trying to read the process output of the closed runner process, the following error occurred: " + str(e).encode('utf-8', errors='replace')
         if len(lines) > 0:
             self._lastLogTime = time.time()
             print("\tRead", len(lines), "lines from process", self.process.pid)
