@@ -197,7 +197,7 @@ class ProcessWatcher:
 
             if await execute_runner.continueRun():
                 break
-            await self.refreshState()
+            await self.refreshState() # there was an instance where this ran an infinite loop. A seemingly old runner (timedOut()) got selected as execute_runner and continueRun() returned False. In refreshState it should already be removed from self.runners !?
 
         await self.runWatcher()
         if waitForCompletion:
@@ -285,7 +285,9 @@ class LatexRunner(Runner):
         return self._state
     
     async def continueRun(self) -> bool:
-        
+        if self._state == RunnerStates.FINISHED:
+            return False
+
         if self.timedOut(): 
             print("Killed an old runner.")
             await self.stop()
