@@ -89,14 +89,14 @@ class Runner(metaclass = ABCMeta):
     async def continueRun(self) -> bool:
         pass
     @abstractmethod
-    async def updateLog(self):
+    async def updateLog(self, timeout: float = 0.05, log: bool = False) -> list:
         pass
     @abstractmethod
     async def stop(self):
         pass
     @staticmethod
     @abstractmethod
-    async def newRunner():
+    async def newRunner(command: str, workingDirectory: PathOrString | None = None, info: str = "", timeoutFunction: Callable[[float], bool] = lambda _: False) -> 'Runner':
         pass
 
 class ProcessWatcher:
@@ -107,7 +107,7 @@ class ProcessWatcher:
 
         self.runners: List[Runner] = []
         self.runningRunners: List[Runner] = []
-        self.watchTask: asyncio.Task = None
+        self.watchTask: asyncio.Task | None = None
         self.finishResults = {errorState: 0 for errorState in [ErrorStates.NEVER_WAITED, ErrorStates.RETURN_CODE_NONZERO, ErrorStates.NONE, ErrorStates.ABORTED]}        
         self.exited = 0
         self.maxNeverWaitedErrors = MAX_NONSTOP_RUNS
@@ -176,11 +176,20 @@ class ProcessWatcher:
         print("WATCHER STOPPED")
         self.watchTask = None
 
-    async def execute(self, waitForCompletion: bool = False):
+    async def execute(self, waitForCompletion: bool = False) -> str:
         if self.exited:
             if self.exited > time.time() - TOO_MANY_NONSTOP_RUNS_COOLDOWN: 
-                print("I already had", self.finishResults[ErrorStates.NONE], "successful compilations", self.finishResults[ErrorStates.RETURN_CODE_NONZERO], "nonzero return codes from runners,", self.finishResults[ErrorStates.ABORTED], "aborted rund and", self.finishResults[ErrorStates.NEVER_WAITED], "runners that never waited. \n ABORTING because that is too much!)" )
-                return
+                abort_message = (
+                    "I already had {} successful compilations, {} nonzero return codes from runners, "
+                    "{} aborted rund and {} runners that never waited. \nABORTING because that is too much!"
+                ).format(
+                    self.finishResults[ErrorStates.NONE],
+                    self.finishResults[ErrorStates.RETURN_CODE_NONZERO],
+                    self.finishResults[ErrorStates.ABORTED],
+                    self.finishResults[ErrorStates.NEVER_WAITED],
+                )
+                print(abort_message)
+                return abort_message
             self.unexit()
         else:            
             await self.stopWatcher() # the watcher might currently access the stdout.readline() method. Python throws a RuntimeError when we then also access it.
@@ -190,6 +199,18 @@ class ProcessWatcher:
 
         execute_runner = self.runners[0]
         while True:
+            if self.exited:
+                abort_message = (
+                    "I already had {} successful compilations, {} nonzero return codes from runners, "
+                    "{} aborted rund and {} runners that never waited. \nABORTING because that is too much!"
+                ).format(
+                    self.finishResults[ErrorStates.NONE],
+                    self.finishResults[ErrorStates.RETURN_CODE_NONZERO],
+                    self.finishResults[ErrorStates.ABORTED],
+                    self.finishResults[ErrorStates.NEVER_WAITED],
+                )
+                print(abort_message)
+                return abort_message
             for runner in self.runners: # look for a waiting runner
                 if await runner.getState() == RunnerStates.WAITING:
                     execute_runner = runner
@@ -213,7 +234,7 @@ class ProcessWatcher:
                 if isinstance(execute_runner, LatexRunner):
                     print("PID", execute_runner.process.pid)
         await execute_runner.updateLog(log = VERBOSE)
-        print("Execution finished. PID:", execute_runner.process.pid)
+        print("Execution finished. PID:", execute_runner.process.pid if isinstance(execute_runner, LatexRunner) else "unknown")
         return "\n".join(execute_runner.lines)
 
 #endregion
@@ -224,15 +245,15 @@ class LatexRunner(Runner):
     def __init__(self, info: str, timeoutFunction: Callable[[float], bool]) -> None:
         """ Call the async static method newRunner instead """
         super().__init__()
-        self.process: Process = None
-        self._state: RunnerStates = None
+        self.process: Process = None # type: ignore
+        self._state: RunnerStates = None # type: ignore
         self.info = info
         self._creationTime = time.time()
         self._lastLogTime = self._creationTime
         self.timedOut = lambda: timeoutFunction(self._creationTime)
 
     @staticmethod
-    async def newRunner(command: str, workingDirectory: PathOrString = None, info: str = "", timeoutFunction: Callable[[float], bool] = lambda x: False) -> Runner:
+    async def newRunner(command: str, workingDirectory: PathOrString | None = None, info: str = "", timeoutFunction: Callable[[float], bool] = lambda x: False) -> Runner:
         self = LatexRunner(info=info, timeoutFunction=timeoutFunction)
         self.process = await asyncio.create_subprocess_shell(command, stdin=PIPE, stdout=PIPE, cwd=workingDirectory)
         self._state = RunnerStates.PREPARING
@@ -279,7 +300,7 @@ class LatexRunner(Runner):
                 self.errorState = ErrorStates.NEVER_WAITED
                 print("BUT IT NEVER WAITED! IF THIS HAPPENS TO OFTEN I'LL ABORT. PUT \\pauseExecution SOMEWHERE IN YOUR DOCUMENT.")
             elif self.process.returncode != 0:
-                self.errorState == ErrorStates.RETURN_CODE_NONZERO
+                self.errorState = ErrorStates.RETURN_CODE_NONZERO
             self._state = RunnerStates.FINISHED
 
         return self._state
@@ -293,20 +314,24 @@ class LatexRunner(Runner):
             await self.stop()
             return False
 
-        state = await self.getState() 
+        state = await self.getState() # updates log
         if state == RunnerStates.PREPARING:
-            print("Will continue a runner that is still preparing")
             
-        while state == RunnerStates.PREPARING:
+            print("-----------------------------------------")
+            print("Continuing a runner that is still preparing. PID:", self.process.pid)
+            print("-----------------------------------------")
+            
+        while state == RunnerStates.PREPARING: 
             await asyncio.sleep(WAIT_WHILE_PREPARING_SLEEP_TIME) 
-            state = await self.getState() 
+            state = await self.getState() # updates log
 
         if state == RunnerStates.WAITING:
             print("-----------------------------------------")
             print("Continuing a waiting runner. PID:", self.process.pid)
             print("-----------------------------------------")
             # await readlines_alreadyWritten(self.process)
-            self.process.stdin.write(b"\r\n")
+            assert self.process.stdin is not None
+            self.process.stdin.write(b"\r\n") ### THIS WRITES TO THE PROCESS STDIN TO CONTINUE IT
             self._state = RunnerStates.RUNNING
             self._lastLogTime = time.time()
             # actually wait for new output
@@ -330,6 +355,7 @@ class LatexRunner(Runner):
         emptyLines = 0
         while self.process.returncode is None:
             try:
+                assert self.process.stdout is not None
                 line = (
                     await asyncio.wait_for(
                         self.process.stdout.readline(),
@@ -358,11 +384,12 @@ class LatexRunner(Runner):
                 break
         else:
             try:
+                assert self.process.stdout is not None
                 linesText = await self.process.stdout.read()
                 lines = linesText.decode('utf-8', errors='replace').splitlines()
             except RuntimeError as e:
                 print("Tried to read the process output, but it was already closed. PID:", self.process.pid)
-                lines = b"ERROR: When trying to read the process output of the closed runner process, the following error occurred: " + str(e).encode('utf-8', errors='replace')
+                lines = ["ERROR: When trying to read the process output of the closed runner process, the following error occurred: " + str(e)]
         if len(lines) > 0:
             self._lastLogTime = time.time()
             print("\tRead", len(lines), "lines from process", self.process.pid)
@@ -372,7 +399,7 @@ class LatexRunner(Runner):
 
 #region Controlling Watchers and Runners
 
-def newWatcher(texFile: PathOrString, output_dir: PathOrString):
+def newWatcher(texFile: PathOrString | None, output_dir: PathOrString | None = None):
     if texFile is None or texFile == "":
         return None
     texFile = Path(texFile).with_suffix('.tex')
@@ -454,19 +481,20 @@ def getCMDorBashCommand(
 
 watchers: Dict[str, ProcessWatcher] = {}
 
-async def do_execute(texFile: str, output_dir: PathOrString = None):
+async def do_execute(texFile: PathOrString, output_dir: PathOrString | None = None) -> str:
     if texFile is None or texFile == '':
         print("No file path provided!")
-        return
+        return "No file path provided!"
     global watchers
-    if texFile not in watchers:
+    key = str(texFile)
+    if key not in watchers:
         watcher = newWatcher(texFile=texFile, output_dir=output_dir)
         if watcher is None:
             print("Potential Error when creating watcher.")
             return "Potential Error when creating watcher."
-        watchers[texFile] = watcher
+        watchers[key] = watcher
     else:
-        watcher = watchers[texFile]
+        watcher = watchers[key]
     return await watcher.execute(waitForCompletion=True)
 #endregion
 
@@ -475,7 +503,6 @@ def runServer(port, texFile: PathOrString = '', output_dir: PathOrString = ''):
     """ Run the server. This never returns, but raises KeyboardInterrupt to kill itself on GET request to f"http://localhost:{port}/stopServer{ROUTE_OBFUSCATION}" """
     from aiohttp import web
     from aiohttp.web_runner import GracefulExit 
-    app: web.Application = None
 
     async def handle(request):
         """ the request must come as text of the form 'texFile,outdir' """
@@ -486,9 +513,9 @@ def runServer(port, texFile: PathOrString = '', output_dir: PathOrString = ''):
             asyncio.create_task( handleStopServer(request) )
             return web.Response(text="Restarting server because of changed server code")
             
-        return web.Response(text=await do_execute(tex_file, outdir))
+        return web.Response(text=await do_execute(tex_file, outdir)) 
 
-    async def handleStopServer(request):
+    async def handleStopServer(request): 
         try:
             print("Got call to \\stopServer---, stopping.")
             signal.raise_signal(signal.SIGTERM)
@@ -498,7 +525,6 @@ def runServer(port, texFile: PathOrString = '', output_dir: PathOrString = ''):
             exit()
 
     async def startup():
-        nonlocal app
         if texFile != '':
             asyncio.get_event_loop().create_task(
                 do_execute(texFile=texFile, output_dir=output_dir) # wrapped in this startup stuff because we only have async from web.run_app
@@ -519,15 +545,16 @@ def portIsFree(port):
 #endregion
 
 def start_myself_in_background(args: List[str]) -> int:
+    # does not work, as the program still ends when this instance ends (which it does immediately)
     """ Argument "names" should begin with double dash: single dash arguments are interpreted as options to python (sys.executable) """
-    if sys.platform == "Windows":
-        from win32process import DETACHED_PROCESS
-        # DETACHED_PROCESS = 0x00000008
+    if sys.platform.lower().startswith("win"): 
+        # from win32process import DETACHED_PROCESS
+        DETACHED_PROCESS = 0x00000008
         kwargs= { 'creationflags': DETACHED_PROCESS }
     else:
         kwargs = {'start_new_session': True}
 
-    return subprocess.Popen([sys.executable, __file__, *args], close_fds=True, shell=False, **kwargs).pid
+    return subprocess.Popen([sys.executable, __file__, *args], close_fds=True, shell=False, **kwargs).pid # type: ignore
     
 #region main command line interface
 @click.command()
@@ -550,9 +577,11 @@ def main(tex_file, output_dir, port, start_server_on_demand, server, stop_server
     portFree = portIsFree(port)
     if stop_server and not portFree:
         try:
-            requests.get(f"http://localhost:{port}/stopServer{ROUTE_OBFUSCATION}")
+            requests.get(f"http://localhost:{port}/stopServer{ROUTE_OBFUSCATION}", timeout=2)
         except requests.exceptions.ConnectionError: # The server kills itself during this connection
             print("Stopped server.")
+        except requests.exceptions.Timeout:
+            print("Server did not stop within 2 s timeout.")
         else:
             print("Potentially stopped server.")
         portFree = portIsFree(port)
