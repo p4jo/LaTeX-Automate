@@ -96,7 +96,7 @@ class Runner(metaclass = ABCMeta):
         pass
     @staticmethod
     @abstractmethod
-    async def newRunner(command: str, workingDirectory: PathOrString | None = None, info: str = "", timeoutFunction: Callable[[float], bool] = lambda _: False) -> 'Runner':
+    async def newRunner(command: str, workingDirectory: 'PathOrString | None' = None, info: str = "", timeoutFunction: Callable[[float], bool] = lambda _: False) -> 'Runner':
         pass
 
 class ProcessWatcher:
@@ -107,7 +107,7 @@ class ProcessWatcher:
 
         self.runners: List[Runner] = []
         self.runningRunners: List[Runner] = []
-        self.watchTask: asyncio.Task | None = None
+        self.watchTask: 'asyncio.Task | None' = None
         self.finishResults = {errorState: 0 for errorState in [ErrorStates.NEVER_WAITED, ErrorStates.RETURN_CODE_NONZERO, ErrorStates.NONE, ErrorStates.ABORTED]}        
         self.exited = 0
         self.maxNeverWaitedErrors = MAX_NONSTOP_RUNS
@@ -253,7 +253,7 @@ class LatexRunner(Runner):
         self.timedOut = lambda: timeoutFunction(self._creationTime)
 
     @staticmethod
-    async def newRunner(command: str, workingDirectory: PathOrString | None = None, info: str = "", timeoutFunction: Callable[[float], bool] = lambda x: False) -> Runner:
+    async def newRunner(command: str, workingDirectory: 'PathOrString | None' = None, info: str = "", timeoutFunction: Callable[[float], bool] = lambda x: False) -> Runner:
         self = LatexRunner(info=info, timeoutFunction=timeoutFunction)
         self.process = await asyncio.create_subprocess_shell(command, stdin=PIPE, stdout=PIPE, cwd=workingDirectory)
         self._state = RunnerStates.PREPARING
@@ -399,7 +399,7 @@ class LatexRunner(Runner):
 
 #region Controlling Watchers and Runners
 
-def newWatcher(texFile: PathOrString | None, output_dir: PathOrString | None = None):
+def newWatcher(texFile: 'PathOrString | None', output_dir: 'PathOrString | None' = None):
     if texFile is None or texFile == "":
         return None
     texFile = Path(texFile).with_suffix('.tex')
@@ -481,7 +481,7 @@ def getCMDorBashCommand(
 
 watchers: Dict[str, ProcessWatcher] = {}
 
-async def do_execute(texFile: PathOrString, output_dir: PathOrString | None = None) -> str:
+async def do_execute(texFile: PathOrString, output_dir: 'PathOrString | None' = None) -> str:
     if texFile is None or texFile == '':
         print("No file path provided!")
         return "No file path provided!"
