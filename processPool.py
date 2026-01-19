@@ -47,6 +47,8 @@ STATE_WATCHER_SLEEP_TIME = 2
 MAX_NONSTOP_RUNS = 2
 TOO_MANY_NONSTOP_RUNS_COOLDOWN = 180
 
+SIMPLE_BACKGROUND_CALL_TIMEOUT = 60 # seconds
+
 OLD_TEMP_DIR_TIMEOUT_MIN = 15
 BASE_POWERSHELL_COMMAND = """
 Set-Item 'Env:\\LATEX_ALLOW_PAUSE_EXECUTION' -Value 'true';
@@ -609,11 +611,17 @@ def main(tex_file, output_dir, port, start_server_on_demand, server, stop_server
     if tex_file != '' and not portFree:
         print("Sending request to server (background worker)")
         sendData = (str(tex_file) + ',' + str(output_dir) ).encode('utf8')
-        requestResult = requests.post(f"http://localhost:{port}/{ROUTE_OBFUSCATION}", data=sendData)
-        content = requestResult.content
-        text = content.decode('utf8')
-        print(text)
-        print("Server finished.")
+        
+        try:
+            requestResult = requests.post(f"http://localhost:{port}/{ROUTE_OBFUSCATION}", data=sendData, timeout=SIMPLE_BACKGROUND_CALL_TIMEOUT)
+        except requests.exceptions.Timeout:
+            print(f"The server did not respond within {SIMPLE_BACKGROUND_CALL_TIMEOUT} seconds timeout.")
+            return
+        else:
+            content = requestResult.content
+            text = content.decode('utf8')
+            print(text)
+            print("Server finished.")
 
 
 
