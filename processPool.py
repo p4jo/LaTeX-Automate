@@ -33,7 +33,8 @@ PathOrString = Union[os.PathLike, str]
 
 #region constants
 ROUTE_OBFUSCATION = 'aosijfoaisdoifnasodnifaosinf'
-DEFAULT_PORT = 65012
+DEFAULT_PORT = 65100
+DEFAULT_HOST = "127.0.0.1"
 HALT_LOG = "PAUSED EXECUTION!"
 VERBOSE = False
 
@@ -56,7 +57,7 @@ mkdir "{tempOutputDirectory}";
 Copy-Item "{outputDirectory}/{fileName}*" "{tempOutputDirectory}";
 xindex -k "{tempOutputDirectory}/{fileName}";
 biber "{tempOutputDirectory}/{fileName}";
-luahblatex --recorder --file-line-error --interaction=nonstopmode --synctex=1 --output-directory="{tempOutputDirectory}" "{fileName}";
+lualatex --recorder --file-line-error --interaction=nonstopmode --synctex=1 --output-directory="{tempOutputDirectory}" "{fileName}";
 Copy-Item "{tempOutputDirectory}/{fileName}*" "{outputDirectory}" -Force;
 rm -r "{tempOutputDirectory}"
 """ #  --max-print-line=300 doesn't work with miktex and lualatex. Add max-print-line=300 to  initexmf --edit-config-file lualatex
@@ -113,6 +114,7 @@ class ProcessWatcher:
         self.finishResults = {errorState: 0 for errorState in [ErrorStates.NEVER_WAITED, ErrorStates.RETURN_CODE_NONZERO, ErrorStates.NONE, ErrorStates.ABORTED]}        
         self.exited = 0
         self.maxNeverWaitedErrors = MAX_NONSTOP_RUNS
+        self.lastLog = ""
 
     async def refreshState(self):        
         if self.exited:
@@ -179,19 +181,22 @@ class ProcessWatcher:
         self.watchTask = None
 
     async def execute(self, waitForCompletion: bool = False) -> str:
-        if self.exited:
-            if self.exited > time.time() - TOO_MANY_NONSTOP_RUNS_COOLDOWN: 
-                abort_message = (
+        def abort() -> str:
+            abort_message = (
                     "I already had {} successful compilations, {} nonzero return codes from runners, "
-                    "{} aborted rund and {} runners that never waited. \nABORTING because that is too much!"
+                    "{} aborted rund and {} runners that never waited. \nABORTING because that is too much! Last log:\n{}"
                 ).format(
                     self.finishResults[ErrorStates.NONE],
                     self.finishResults[ErrorStates.RETURN_CODE_NONZERO],
                     self.finishResults[ErrorStates.ABORTED],
                     self.finishResults[ErrorStates.NEVER_WAITED],
+                    self.lastLog
                 )
-                print(abort_message)
-                return abort_message
+            print(abort_message)
+            return abort_message
+        if self.exited:
+            if self.exited > time.time() - TOO_MANY_NONSTOP_RUNS_COOLDOWN: 
+                return abort()
             self.unexit()
         else:            
             await self.stopWatcher() # the watcher might currently access the stdout.readline() method. Python throws a RuntimeError when we then also access it.
@@ -201,18 +206,8 @@ class ProcessWatcher:
 
         execute_runner = self.runners[0]
         while True:
-            if self.exited:
-                abort_message = (
-                    "I already had {} successful compilations, {} nonzero return codes from runners, "
-                    "{} aborted rund and {} runners that never waited. \nABORTING because that is too much!"
-                ).format(
-                    self.finishResults[ErrorStates.NONE],
-                    self.finishResults[ErrorStates.RETURN_CODE_NONZERO],
-                    self.finishResults[ErrorStates.ABORTED],
-                    self.finishResults[ErrorStates.NEVER_WAITED],
-                )
-                print(abort_message)
-                return abort_message
+            if self.exited: #self.refreshState() above might have exited because of too many NEVER_WAITED runners
+                return abort()
             for runner in self.runners: # look for a waiting runner
                 if await runner.getState() == RunnerStates.WAITING:
                     execute_runner = runner
@@ -237,7 +232,8 @@ class ProcessWatcher:
                     print("PID", execute_runner.process.pid)
         await execute_runner.updateLog(log = VERBOSE)
         print("Execution finished. PID:", execute_runner.process.pid if isinstance(execute_runner, LatexRunner) else "unknown")
-        return "\n".join(execute_runner.lines)
+        self.lastLog = "\n".join(execute_runner.lines)
+        return self.lastLog
 
 #endregion
 
@@ -501,8 +497,8 @@ async def do_execute(texFile: PathOrString, output_dir: 'PathOrString | None' = 
 #endregion
 
 #region Server setup
-def runServer(port, texFile: PathOrString = '', output_dir: PathOrString = ''):
-    """ Run the server. This never returns, but raises KeyboardInterrupt to kill itself on GET request to f"http://localhost:{port}/stopServer{ROUTE_OBFUSCATION}" """
+def runServer(port, host: str = DEFAULT_HOST, texFile: PathOrString = '', output_dir: PathOrString = ''):
+    """ Run the server. This never returns, but raises KeyboardInterrupt to kill itself on GET request to f"http://{host}:{port}/stopServer{ROUTE_OBFUSCATION}" """
     from aiohttp import web
     from aiohttp.web_runner import GracefulExit 
 
@@ -510,7 +506,7 @@ def runServer(port, texFile: PathOrString = '', output_dir: PathOrString = ''):
         """ the request must come as text of the form 'texFile,outdir' """
         tex_file, outdir = (await request.text()).split(',')
         if Path(__file__).stat().st_mtime > THIS_FILE_VERSION_TIME:
-            pid = start_myself_in_background( ['--port', str(port), '--o', str(outdir), '--server', '--f', str(tex_file), '--wait', '10' ] )
+            pid = start_myself_in_background( ['--port', str(port), '--host', str(host), '--o', str(outdir), '--server', '--f', str(tex_file), '--wait', '10' ] )
             print(f"Restarting myself with PID {pid}.")
             asyncio.create_task( handleStopServer(request) )
             return web.Response(text="Restarting server because of changed server code")
@@ -539,11 +535,11 @@ def runServer(port, texFile: PathOrString = '', output_dir: PathOrString = ''):
         ])
         return app
 
-    web.run_app(startup(), port=port)
+    web.run_app(startup(), host=host, port=port)
 
-def portIsFree(port):
+def portIsFree(port, host: str = DEFAULT_HOST):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as testSocket:
-        return testSocket.connect_ex(("localhost", port)) != 0
+        return testSocket.connect_ex((host, port)) != 0
 #endregion
 
 def start_myself_in_background(args: List[str]) -> int:
@@ -563,39 +559,40 @@ def start_myself_in_background(args: List[str]) -> int:
 @click.option("--tex-file", "--file", "--f", "-f", default="")
 @click.option("--output-dir", "--output-directory", "--outdir", "--o", "-o", default="out", help="Path for LaTeX output, relative to the tex file. Every LaTeX runner will use a temporary subdirectory and only copy to this directory in the end. Some files will be copied to our temp dir beforehand.")
 @click.option("--port", "--p", "-p", default=DEFAULT_PORT, help=f"The port of/for the server (background worker), default = {DEFAULT_PORT}")
+@click.option("--host", default=DEFAULT_HOST, help=f"Host interface to bind to. Default = {DEFAULT_HOST}")
 @click.option("--start-server-on-demand/--no-server", "--s,--c", "-s/-c", default=True, help="Start a server in a background process if the port is still free. Enabled by default.")
 @click.option("--server", is_flag=True, help="Run the server right here. This script will not end by itself.")
 @click.option("--stop-server", is_flag=True, help="Stop the already running server by sending a request. Continue as normal after 1 s.")
 @click.option("--print-command", "-c", "--c", "--command", "--pc", "-pc", is_flag=True, help="Only show the powershell command and quit.")
 @click.option("--verbose", "-v", "--v", is_flag=True, help="Show the complete output of the child processes.")
 @click.option("--wait", "-w", "--w", default = 0, help="Wait for the specified amount of seconds before starting.")
-def main(tex_file, output_dir, port, start_server_on_demand, server, stop_server, print_command, verbose, wait):
+def main(tex_file, output_dir, port, host, start_server_on_demand, server, stop_server, print_command, verbose, wait):
     if print_command:
         print(getPowershellCommand(None, output_dir, tex_file))
         return
     global VERBOSE
     VERBOSE = verbose
     time.sleep(wait)
-    portFree = portIsFree(port)
+    portFree = portIsFree(port, host)
     if stop_server and not portFree:
         try:
-            requests.get(f"http://localhost:{port}/stopServer{ROUTE_OBFUSCATION}", timeout=2)
+            requests.get(f"http://{host}:{port}/stopServer{ROUTE_OBFUSCATION}", timeout=2)
         except requests.exceptions.ConnectionError: # The server kills itself during this connection
             print("Stopped server.")
         except requests.exceptions.Timeout:
             print("Server did not stop within 2 s timeout.")
         else:
             print("Potentially stopped server.")
-        portFree = portIsFree(port)
+        portFree = portIsFree(port, host)
         if not portFree:
             time.sleep(1)
-            portFree = portIsFree(port)
+            portFree = portIsFree(port, host)
             if not portFree:
                 print("SERVER DIDN'T STOP AFTER 1 s")
 
     if server:
         if portFree:
-            runServer(port=port, texFile=tex_file, output_dir=output_dir)
+            runServer(port=port, host=host, texFile=tex_file, output_dir=output_dir)
         else:
             print("COULDN'T START THE SERVER, BECAUSE THE PORT IS NOT FREE. IS THERE ANOTHER SERVER RUNNING? KILL IT BY RUNNING THIS AGAIN WITH THE --stop-server FLAG.")
         return
@@ -603,7 +600,7 @@ def main(tex_file, output_dir, port, start_server_on_demand, server, stop_server
     if tex_file != '' and start_server_on_demand and portFree:
         # command_args = [sys.executable, '"'+__file__+'"', f'--p {port}', f'--o {output_dir}', '--server', f'--f {tex_file}' ]
         # pid = os.spawnl(os.P_NOWAIT, *command_args)
-        command_args = [ '--port', str(port), '--o', str(output_dir), '--server', '--f', str(tex_file) ]
+        command_args = [ '--port', str(port), '--host', str(host), '--o', str(output_dir), '--server', '--f', str(tex_file) ]
         pid = start_myself_in_background(command_args)
         print("STARTED SERVER (BACKGROUND WORKER) WITH PID", pid, "using command ", *command_args)
         print("STOP IT BY CALLING THIS AGAIN WITH THE --stop-server FLAG.")
@@ -613,9 +610,12 @@ def main(tex_file, output_dir, port, start_server_on_demand, server, stop_server
         sendData = (str(tex_file) + ',' + str(output_dir) ).encode('utf8')
         
         try:
-            requestResult = requests.post(f"http://localhost:{port}/{ROUTE_OBFUSCATION}", data=sendData, timeout=SIMPLE_BACKGROUND_CALL_TIMEOUT)
+            requestResult = requests.post(f"http://{host}:{port}/{ROUTE_OBFUSCATION}", data=sendData, timeout=SIMPLE_BACKGROUND_CALL_TIMEOUT)
         except requests.exceptions.Timeout:
             print(f"The server did not respond within {SIMPLE_BACKGROUND_CALL_TIMEOUT} seconds timeout.")
+            return
+        except ConnectionResetError:
+            print("The server closed the connection unexpectedly (possibly because it was restarted).")
             return
         else:
             content = requestResult.content

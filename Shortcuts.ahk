@@ -136,6 +136,8 @@ return
 ^!+´:: 
 	Send ´
 return
+
+#ScrollLock::
 #CapsLock::
 	numCapsLock := !numCapsLock
 	text := numCapsLock ? "Backslash und 7/, 8(, 9) an" : "Backslash und 7/, 8(, 9) aus" 
@@ -479,7 +481,7 @@ MButton:: MButton
 
 
 ; EMOJIS
-ScrollLock::
+; ScrollLock::
 Browser_Favorites::
 	Send {LWin down}.{LWin Up} 
 return
