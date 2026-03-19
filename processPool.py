@@ -33,7 +33,7 @@ PathOrString = Union[os.PathLike, str]
 
 #region constants
 ROUTE_OBFUSCATION = 'aosijfoaisdoifnasodnifaosinf'
-DEFAULT_PORT = 65100
+DEFAULT_PORT = 65344
 DEFAULT_HOST = "127.0.0.1"
 HALT_LOG = "PAUSED EXECUTION!"
 VERBOSE = False

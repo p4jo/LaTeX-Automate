@@ -4,7 +4,7 @@ param(
     [Alias ("onedrivePath", "subpath")]
     [string] $ODP = "/Dok/LaTeX-output"
 )
-Write-Host "This is copyToOneDrive. Make sure you have set `$Path_OneDrive in your `$profile. Else we use YourPersonalOneDrive$ODP"
+Write-Host "This is copyToOneDrive. Make sure you have set `$Path_OneDrive in your `$profile (``````code `$profile.AllUsersAllHosts``````). Else we use YourPersonalOneDrive$ODP"
 
 if ($f -ne ""){
     $pathOK = 0
