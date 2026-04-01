@@ -55,6 +55,9 @@ return
 ^!a::
 	Send α
 return
+^!g::
+	Send γ
+return
 
 ^!n::
 	Send ν
@@ -344,9 +347,9 @@ return
 	; 	Send % "\right\rangle "
 	; return
 
-	^!g::
-		Send \Gleichung
-	return
+	; ^!g::
+	; 	Send \Gleichung
+	; return
 
 	^!h::
 		Send \hquer
