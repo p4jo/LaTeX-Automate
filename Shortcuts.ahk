@@ -4,7 +4,7 @@
 SendMode Input  ; Recommended for new scripts due to its superior speed and reliability.
 SetTitleMatchMode 2
 
-GroupAdd, Programmieren, Visual Studio,,, LaTeX
+; GroupAdd, Programmieren, Visual Studio,,, (LaTeX|Typst)
 GroupAdd, Programmieren, .py
 GroupAdd, Programmieren, .ts
 GroupAdd, Programmieren, .js
@@ -18,6 +18,8 @@ GroupAdd, LaTeX, .tex
 GroupAdd, LaTeX, .cls
 GroupAdd, LaTeX, .sty
 GroupAdd, LaTeX, LaTeX,,, .ahk ; LaTeX im Titel, aber nicht .ahk
+
+GroupAdd, Typst, .typ
 
 GroupAdd, CookieClicker, Cookie Clicker
 
@@ -359,26 +361,8 @@ return
 	$4::
 		Send $
 	return
-	^!3::
-		Send 3
-	return
-	^!4::
-		Send 4
-	return
-	; $5::
-	; 	Send `%
-	; return
-	^!5::
-		Send 5
-	return
 	$6::
 		Send &
-	return
-	^!6::
-		Send 6
-	return
-	^!+6::
-		Send 6
 	return
 	
 	$+8::
@@ -412,7 +396,33 @@ return
 		Send ▞
 	return
 
-#IfWinActive
+#If
+
+#If WinActive("ahk_group Typst")
+
+	$3::
+	$4::
+		Send $
+	return
+
+		
+	#,::
+		Send {{}
+	return
+
+	#.::
+		Send {}}
+	return
+
+	^!,::
+		Send [
+	return
+
+	^!.::
+		Send ]
+	return 
+#If
+
 
 ^!+1::
 	Send 1
